@@ -77,8 +77,16 @@ class RefreshService:
         report = RefreshReport()
         targets = list(feeds)
         now = self._runtime.clock()
+        states = self._runtime.catalogue.feed_states({channel_id for channel_id, _ in targets})
+        light = self._runtime.tuning.recheck_attempts
+
+        def fetch(target: tuple[str, FeedKind]) -> FeedAnswer:
+            state = states.get(target)
+            absent = state is not None and state.status is FeedStatus.ABSENT
+            return self._runtime.feeds.fetch(*target, attempts=light if absent else None)
+
         with ThreadPoolExecutor(self._runtime.tuning.workers) as pool:
-            answers = pool.map(lambda t: self._runtime.feeds.fetch(*t), targets)
+            answers = pool.map(fetch, targets)
             for done, ((channel_id, kind), answer) in enumerate(zip(targets, answers, strict=True), start=1):
                 self._apply(channel_id, kind, answer, now, report)
                 if progress:

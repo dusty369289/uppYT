@@ -1,6 +1,9 @@
 """Every feed a channel can have. The one place that knows their prefixes, labels and defaults.
 
 Confirmed against real feeds on 2026-11-06. A feed's playlist ID is its prefix plus the channel ID without its "UC".
+
+Playlist feeds are flaky: the same URL can answer 200, 404 or 500 from one second to the next, and Shorts failed 8 times
+in 12 when measured. sources/feeds.py retries. The plain channel feed answered 20 times in 20.
 """
 
 from __future__ import annotations
@@ -56,6 +59,9 @@ def playlist_id(channel_id: str, kind: FeedKind) -> str:
 
 
 def feed_url(channel_id: str, kind: FeedKind) -> str:
+    """All uploads uses the plain channel feed. It lists the same videos, and unlike playlist feeds it's reliable."""
+    if kind is FeedKind.ALL:
+        return channel_feed_url(channel_id)
     return f"{FEED_ROOT}?{urlencode({'playlist_id': playlist_id(channel_id, kind)})}"
 
 

@@ -5,7 +5,7 @@ import json
 import pytest
 from typer.testing import CliRunner
 
-from tests.support import MKBHD, SECOND, FixedClock, world
+from tests.support import MKBHD, SECOND, FixedClock, no_sleep, world
 from uppyt.cli.main import Session, app
 from uppyt.domain.feeds import FeedKind
 from uppyt.domain.models import Priority
@@ -16,7 +16,7 @@ class Cli:
     def __init__(self, tmp_path):
         self.clock = FixedClock()
         self.transport = world()
-        self.runtime = Runtime(Paths(tmp_path), clock=self.clock, transport=self.transport)
+        self.runtime = Runtime(Paths(tmp_path), clock=self.clock, transport=self.transport, sleep=no_sleep)
         self.runner = CliRunner()
 
     def __call__(self, *args: str, code: int = 0):
@@ -67,6 +67,12 @@ def test_adding_a_channel_with_every_choice(cli):
     assert subscription.feeds == {FeedKind.VIDEOS, FeedKind.SHORTS}
     assert subscription.tags == ("tech", "long")
     assert subscription.window_days == 90
+
+
+def test_low_priority_stays_low(cli):
+    """The real run found this: Low is 0, so `or NORMAL` quietly turned it into Normal."""
+    cli("channels", "add", "@veritasium", "--priority", "low")
+    assert cli.store().subscriptions()[SECOND].priority is Priority.LOW
 
 
 def test_lookup_maps_every_feed_without_following(cli):

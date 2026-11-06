@@ -26,16 +26,25 @@ class FixedClock:
         self.now += timedelta(**kwargs)
 
 
-class FakeTransport:
-    """Answers from a table of URLs, and records what was asked. Anything unexpected is a 404, as YouTube would say."""
+def no_sleep(_seconds: float) -> None:
+    """Retries shouldn't slow the tests down."""
 
-    def __init__(self, routes: dict[str, Response | Exception] | None = None):
+
+class FakeTransport:
+    """Answers from a table of URLs, and records what was asked. Anything unexpected is a 404, as YouTube would say.
+
+    A list answers in turn, then keeps repeating its last answer, for feeds that flip between 404 and 200.
+    """
+
+    def __init__(self, routes: dict[str, Response | Exception | list] | None = None):
         self.routes = dict(routes or {})
         self.requests: list[str] = []
 
     def get(self, url: str) -> Response:
         self.requests.append(url)
         answer = self.routes.get(url, Response(404, url=url))
+        if isinstance(answer, list):
+            answer = answer.pop(0) if len(answer) > 1 else answer[0]
         if isinstance(answer, Exception):
             raise answer
         return answer
@@ -131,4 +140,5 @@ def world() -> FakeTransport:
     transport.routes["https://yt3.googleusercontent.com/veri=s176-c-k"] = Response(200, JPEG, "image/jpeg")
     videos = [(f"veri{i:04d}xxx", f"Veritasium video {i}", NOW - timedelta(days=2 + i * 5)) for i in range(4)]
     transport.serve_feed(SECOND, FeedKind.VIDEOS, feed_xml(SECOND, "Veritasium", videos))
+    transport.serve_feed(SECOND, FeedKind.ALL, feed_xml(SECOND, "Veritasium", videos))
     return transport

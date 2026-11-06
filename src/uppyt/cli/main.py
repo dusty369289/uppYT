@@ -371,7 +371,7 @@ def channels_add(
         .app()
         .channels.add(
             link,
-            priority=_parse_priority(priority) or Priority.NORMAL,
+            priority=Priority.parse(priority),
             feeds=_parse_feeds(feeds),
             tags=_parse_tags(tags) or (),
             window_days=window,

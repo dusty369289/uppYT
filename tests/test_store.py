@@ -203,9 +203,9 @@ def test_a_success_clears_failures(catalogue):
     assert state.status is FeedStatus.ACTIVE
 
 
-def test_absent_feeds_are_checked_again_in_a_week(catalogue):
+def test_absent_feeds_are_checked_again_the_next_day(catalogue):
     catalogue.record_missing(MKBHD, FeedKind.SHORTS, NOW, timedelta(hours=1), probing=True)
-    assert catalogue.feed_states([MKBHD])[(MKBHD, FeedKind.SHORTS)].next_check_at == NOW + timedelta(days=7)
+    assert catalogue.feed_states([MKBHD])[(MKBHD, FeedKind.SHORTS)].next_check_at == NOW + timedelta(days=1)
 
 
 def test_failures_back_off_up_to_a_day(catalogue):

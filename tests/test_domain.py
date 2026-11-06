@@ -38,7 +38,7 @@ def order(ranked) -> list[str]:
 
 def test_feed_urls_use_the_prefix_without_uc():
     assert feed_url(CHANNEL, FeedKind.VIDEOS).endswith("playlist_id=UULFBJycsmduvYEL83R_U4JriQ")
-    assert feed_url(CHANNEL, FeedKind.ALL).endswith("playlist_id=UUBJycsmduvYEL83R_U4JriQ")
+    assert feed_url(CHANNEL, FeedKind.ALL).endswith(f"channel_id={CHANNEL}")
 
 
 def test_toggles_and_defaults_are_the_agreed_ones():

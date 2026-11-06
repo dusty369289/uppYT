@@ -5,7 +5,7 @@ from html import unescape
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.support import MKBHD, NOW, SECOND, FixedClock, feed_xml, world
+from tests.support import MKBHD, NOW, SECOND, FixedClock, feed_xml, no_sleep, world
 from uppyt.domain.feeds import FeedKind
 from uppyt.domain.models import Priority
 from uppyt.services.app import UppYT
@@ -17,7 +17,7 @@ class Site:
     def __init__(self, tmp_path, **kwargs):
         self.clock = FixedClock()
         self.transport = world()
-        self.runtime = Runtime(Paths(tmp_path), clock=self.clock, transport=self.transport)
+        self.runtime = Runtime(Paths(tmp_path), clock=self.clock, transport=self.transport, sleep=no_sleep)
         self.client = TestClient(create_app(self.runtime, background_refresh=False, **kwargs), follow_redirects=False)
 
     def services(self, name="dusty") -> UppYT:

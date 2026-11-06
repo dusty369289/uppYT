@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import html
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Protocol
 from urllib.parse import urlsplit
 
@@ -12,6 +14,7 @@ from ..domain.errors import UserError
 from ..domain.models import CHANNEL_ID
 from .transport import IMAGE_HOSTS, Transport, TransportError, is_allowed
 
+REMEMBER_FOR = timedelta(minutes=15)
 AVATAR_SIZE = 176  # twice the largest it's ever shown
 YOUTUBE_HOSTS = frozenset({"www.youtube.com", "youtube.com", "m.youtube.com"})
 _CANONICAL = re.compile(r'<link rel="canonical" href="https://www\.youtube\.com/channel/(UC[\w-]{22})"')
@@ -93,17 +96,30 @@ def parse_channel_page(page: str) -> ResolvedChannel:
 
 
 class PageResolver:
-    def __init__(self, transport: Transport):
+    """Remembers answers for a while: a channel's preview and following it both need one, and the page is 3 MB."""
+
+    def __init__(self, transport: Transport, clock: Callable[[], datetime]):
         self._transport = transport
+        self._clock = clock
+        self._known: dict[str, tuple[datetime, ResolvedChannel]] = {}
 
     def resolve(self, text: str) -> ResolvedChannel:
         url = channel_page_url(text)
+        now = self._clock()
+        known = self._known.get(url)
+        if known and now - known[0] < REMEMBER_FOR:
+            return known[1]
         try:
             reply = self._transport.get(url)
         except TransportError as error:
             raise ChannelLookupError(str(error)) from error
         if reply.status == 404:
             raise ChannelLookupError(f"YouTube has no channel at {url}. Check the spelling.")
+        if urlsplit(reply.url).hostname == "consent.youtube.com":
+            raise ChannelLookupError("YouTube showed its cookie consent page instead of the channel. Try again later.")
         if reply.status != 200:
             raise ChannelLookupError(f"YouTube answered {reply.status} for that channel. Try again in a moment.")
-        return parse_channel_page(reply.text)
+        channel = parse_channel_page(reply.text)
+        self._known[url] = (now, channel)
+        self._known[channel_page_url(channel.id)] = (now, channel)
+        return channel

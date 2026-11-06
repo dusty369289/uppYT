@@ -4,7 +4,7 @@ from datetime import timedelta
 
 import pytest
 
-from tests.support import MKBHD, NOW, SECOND, FixedClock, feed_xml, world
+from tests.support import MKBHD, NOW, SECOND, FixedClock, feed_xml, no_sleep, world
 from uppyt.domain.errors import NotFound, UserError
 from uppyt.domain.feeds import DEFAULT_ON, FeedKind, feed_url
 from uppyt.domain.models import FeedStatus, Priority
@@ -21,7 +21,7 @@ class Scene:
     def __init__(self, tmp_path):
         self.clock = FixedClock()
         self.transport = world()
-        self.runtime = Runtime(Paths(tmp_path), clock=self.clock, transport=self.transport)
+        self.runtime = Runtime(Paths(tmp_path), clock=self.clock, transport=self.transport, sleep=no_sleep)
         self.runtime.create_profile("dusty")
         self.app = UppYT(self.runtime, self.runtime.profile("dusty"))
 
@@ -98,6 +98,56 @@ def test_something_that_isnt_a_picture_isnt_kept_as_an_avatar(scene):
         if "googleusercontent" in url:
             scene.transport.routes[url] = Response(200, b"<html>", "text/html")
     assert scene.app.channels.add("@mkbhd").channel.avatar_file is None
+
+
+def test_the_channel_feed_vouches_for_feeds_that_didnt_answer(scene):
+    """So a flaky Shorts or Videos feed doesn't get a channel's feed wrongly called 'not offered'."""
+    scene.transport.routes.pop(feed_url(MKBHD, FeedKind.VIDEOS))
+    scene.transport.routes.pop(feed_url(MKBHD, FeedKind.SHORTS))
+    all_with_short = feed_xml(MKBHD, "Marques Brownlee", [("plain000xxx", "Plain", NOW)]).replace(
+        "</entry>",
+        '<link rel="alternate" href="https://www.youtube.com/watch?v=plain000xxx"/></entry>'
+        "<entry><yt:videoId>short000xxx</yt:videoId><yt:channelId>" + MKBHD + "</yt:channelId><title>S</title>"
+        f"<published>{NOW.isoformat()}</published>"
+        '<link rel="alternate" href="https://www.youtube.com/shorts/short000xxx"/></entry>',
+    )
+    scene.transport.serve_feed(MKBHD, FeedKind.ALL, all_with_short)
+    preview = scene.app.channels.lookup("@mkbhd")
+    assert preview.available[FeedKind.VIDEOS] is True
+    assert preview.available[FeedKind.SHORTS] is True
+
+
+def test_a_feed_that_flaked_while_adding_is_tried_again_at_the_next_refresh(scene):
+    url = feed_url(SECOND, FeedKind.VIDEOS)
+    working = scene.transport.routes[url]
+    scene.transport.routes[url] = Response(500)
+    scene.app.channels.add("@veritasium")
+    assert scene.app.board.view().total == 0
+    scene.transport.routes[url] = working
+    scene.clock.advance(hours=1)
+    scene.app.refresh.run()
+    assert scene.app.board.view().total == 4
+
+
+def test_a_feed_wrongly_called_absent_corrects_itself(scene):
+    url = feed_url(SECOND, FeedKind.LIVE)
+    scene.app.channels.add("@veritasium", feeds=[FeedKind.VIDEOS, FeedKind.LIVE])
+    state = scene.runtime.catalogue.feed_states([SECOND])[(SECOND, FeedKind.LIVE)]
+    assert state.status is FeedStatus.ABSENT
+    scene.transport.routes[url] = Response(
+        200, feed_xml(SECOND, "Veritasium", [("wasalive0xx", "Live now", NOW)]).encode()
+    )
+    scene.clock.advance(days=1, minutes=1)
+    scene.app.refresh.run()
+    assert scene.runtime.catalogue.feed_states([SECOND])[(SECOND, FeedKind.LIVE)].status is FeedStatus.ACTIVE
+
+
+def test_absent_feeds_are_only_checked_lightly(scene):
+    scene.app.channels.add("@veritasium", feeds=[FeedKind.LIVE])
+    scene.clock.advance(days=1, minutes=1)
+    scene.transport.requests.clear()
+    scene.app.refresh.run()
+    assert len(only_feed_requests(scene.transport)) == scene.runtime.tuning.recheck_attempts
 
 
 def test_youtube_listing_no_feeds_at_all_is_reported(scene):
@@ -466,7 +516,7 @@ def test_with_several_profiles_someone_has_to_choose(scene):
 
 
 def test_with_no_profiles_it_says_how_to_make_one(tmp_path):
-    runtime = Runtime(Paths(tmp_path), clock=FixedClock(), transport=world())
+    runtime = Runtime(Paths(tmp_path), clock=FixedClock(), transport=world(), sleep=no_sleep)
     with pytest.raises(ProfileError, match="profiles add"):
         runtime.choose_profile(None)
     runtime.close()
@@ -519,6 +569,13 @@ def test_export_then_import_into_another_profile(scene):
     assert subscription.tags == ("tech",)
 
 
+def test_low_priority_survives_an_import(scene):
+    scene.app.channels.add("@veritasium", priority=Priority.LOW)
+    nat = scene.other()
+    nat.transfer.import_opml(scene.app.transfer.export_opml())
+    assert nat.store.subscriptions()[SECOND].priority is Priority.LOW
+
+
 def test_importing_again_changes_nothing(scene):
     scene.app.channels.add("@mkbhd")
     report = scene.app.transfer.import_opml(scene.app.transfer.export_opml())
@@ -550,7 +607,11 @@ def test_a_backup_holds_history_and_profiles(scene):
 
 def test_tuning_is_a_parameter(tmp_path):
     runtime = Runtime(
-        Paths(tmp_path), clock=FixedClock(), transport=world(), tuning=Tuning(refresh_every=timedelta(minutes=20))
+        Paths(tmp_path),
+        clock=FixedClock(),
+        transport=world(),
+        sleep=no_sleep,
+        tuning=Tuning(refresh_every=timedelta(minutes=20)),
     )
     runtime.create_profile("a")
     app = UppYT(runtime, runtime.profile("a"))

@@ -113,6 +113,7 @@ class FeedEntry:
     title: str
     published_at: datetime
     views: int | None = None
+    is_short: bool = False
 
 
 @dataclass(frozen=True)

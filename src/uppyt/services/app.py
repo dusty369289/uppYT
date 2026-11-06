@@ -18,7 +18,7 @@ from ..domain.ranking import Candidate, HeadStartRanker, describe_age, in_window
 from ..domain.settings import Settings
 from ..ops import operation
 from ..sources.channels import ChannelLookupError, ResolvedChannel
-from ..sources.feeds import Failed, Found, Missing
+from ..sources.feeds import Found, Missing
 from ..sources.opml import OpmlChannel, parse_opml, write_opml
 from ..sources.transport import IMAGE_HOSTS, TransportError, is_allowed
 from ..store.files import atomic_write
@@ -179,12 +179,19 @@ class ChannelService:
         """Which of a channel's feeds exist. A failure isn't a no, so it stays None."""
         kinds = [spec.kind for spec in CATALOGUE]
         with ThreadPoolExecutor(self._runtime.tuning.workers) as pool:
-            answers = list(pool.map(lambda kind: self._runtime.feeds.fetch(channel_id, kind), kinds))
-        available: dict[FeedKind, bool | None] = {}
-        for kind, answer in zip(kinds, answers, strict=True):
-            available[kind] = True if isinstance(answer, Found) else False if isinstance(answer, Missing) else None
-        if not any(available.values()) and not any(isinstance(a, Failed) for a in answers):
-            # Every channel has an uploads feed, so this many 404s is YouTube having a moment, not the truth.
+            answers = dict(
+                zip(kinds, pool.map(lambda kind: self._runtime.feeds.fetch(channel_id, kind), kinds), strict=True)
+            )
+        available: dict[FeedKind, bool | None] = {
+            kind: True if isinstance(answer, Found) else False if isinstance(answer, Missing) else None
+            for kind, answer in answers.items()
+        }
+        uploads = answers[FeedKind.ALL]
+        if isinstance(uploads, Found):
+            # The channel feed is reliable and its links tell Shorts apart, so it vouches for feeds that didn't answer.
+            available[FeedKind.VIDEOS] = available[FeedKind.VIDEOS] or any(not e.is_short for e in uploads.feed.entries)
+            available[FeedKind.SHORTS] = available[FeedKind.SHORTS] or any(e.is_short for e in uploads.feed.entries)
+        elif not any(available.values()):
             raise ChannelLookupError("YouTube didn't list any feeds for that channel just now. Try again in a moment.")
         return available
 
@@ -444,9 +451,8 @@ class TransferService:
                 report.already_following += 1
             else:
                 try:
-                    detail = self._channels.add(
-                        entry.channel_id, priority=entry.priority or Priority.NORMAL, tags=entry.tags
-                    )
+                    priority = Priority.NORMAL if entry.priority is None else entry.priority
+                    detail = self._channels.add(entry.channel_id, priority=priority, tags=entry.tags)
                     report.added.append(detail.channel.name)
                 except UserError as error:
                     report.failures.append((entry.title, str(error)))

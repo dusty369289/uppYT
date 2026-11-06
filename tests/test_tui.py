@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from textual.widgets import Checkbox, DataTable, Input, Select, Static
 
-from tests.support import MKBHD, NOW, SECOND, FixedClock, feed_xml, world
+from tests.support import MKBHD, NOW, SECOND, FixedClock, feed_xml, no_sleep, world
 from uppyt.domain.feeds import FeedKind
 from uppyt.domain.models import Priority
 from uppyt.services.app import UppYT
@@ -28,7 +28,7 @@ class Scene:
     def __init__(self, tmp_path):
         self.clock = FixedClock()
         self.transport = world()
-        self.runtime = Runtime(Paths(tmp_path), clock=self.clock, transport=self.transport)
+        self.runtime = Runtime(Paths(tmp_path), clock=self.clock, transport=self.transport, sleep=no_sleep)
         self.opened: list[str] = []
 
     def app(self, *, profile: str | None = "dusty") -> UppytApp:

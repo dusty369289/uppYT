@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -66,6 +67,7 @@ class Tuning:
     retry_after: timedelta = timedelta(minutes=30)
     lock_lease: timedelta = timedelta(minutes=30)
     workers: int = 4
+    recheck_attempts: int = 2  # a feed believed absent is only checked lightly, since most channels lack some feeds
 
 
 class Runtime:
@@ -77,12 +79,13 @@ class Runtime:
         transport: Transport | None = None,
         resolver: ChannelResolver | None = None,
         tuning: Tuning | None = None,
+        sleep: Callable[[float], None] = time.sleep,
     ):
         self.paths = paths
         self.clock = clock
         self.transport: Transport = transport or HttpTransport()
-        self.resolver: ChannelResolver = resolver or PageResolver(self.transport)
-        self.feeds = FeedClient(self.transport, clock)
+        self.resolver: ChannelResolver = resolver or PageResolver(self.transport, clock)
+        self.feeds = FeedClient(self.transport, clock, sleep=sleep)
         self.tuning = tuning or Tuning()
         self.catalogue = Catalogue(paths.catalogue, clock(), paths.backups)
         self.directory = ProfileDirectory(paths.config)

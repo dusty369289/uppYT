@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.responses import HTMLResponse
 
-from tests.support import FixedClock, world
+from tests.support import FixedClock, no_sleep, world
 from uppyt import ops
 from uppyt.cli import main as _cli  # noqa: F401  registers its operations
 from uppyt.domain.feeds import CATALOGUE, TOGGLES
@@ -97,7 +97,7 @@ def test_interfaces_hold_no_ranking_logic():
 @pytest.fixture(scope="module")
 def web_routes(tmp_path_factory):
     """Building the app is what registers its routes, pages and operations."""
-    runtime = Runtime(Paths(tmp_path_factory.mktemp("web")), clock=FixedClock(), transport=world())
+    runtime = Runtime(Paths(tmp_path_factory.mktemp("web")), clock=FixedClock(), transport=world(), sleep=no_sleep)
     app = web_app.create_app(runtime, background_refresh=False)
     yield app.routes
     runtime.close()
@@ -210,7 +210,7 @@ def test_every_theme_has_a_file_and_is_in_the_bundle():
 
 
 def test_no_pills_or_glow():
-    """The owner rejected these as stereotypically AI. Near-square corners and no glow, unless a theme decides otherwise."""
+    """The owner rejected these as stereotypically AI. Near-square corners and no glow."""
     for path in css_files():
         text = path.read_text(encoding="utf-8")
         for value in re.findall(r"border-radius:\s*([^;]+);", text):

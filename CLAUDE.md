@@ -49,7 +49,7 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
   recorded when probing, never polled. Only enabled feeds are polled. Kind precedence: Live > Short > Video.
 - **Seen** is explicit only: opening a video never marks it seen. Always undoable, with a Seen page to restore from.
 - **Refresh:** on launch, hourly while running, plus `uppyt refresh` for cron. Never re-fetch a feed within 15 minutes
-  (`max-age=900`). One 404 doesn't make a feed absent.
+  (`max-age=900`). One 404 doesn't make a feed absent. Enabled feeds believed absent are rechecked daily, lightly.
 - **Security:** binds to 127.0.0.1 by default. Profiles aren't private. Only YouTube hosts can be fetched. Feed text is
   untrusted: Jinja autoescape on the web, Textual markup off for titles (`[bold]` in a title must stay literal).
 
@@ -73,4 +73,11 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
 - Before each commit: the full suite once. Check what you changed against the running app, not only tests.
 
 ## Things that have caught us out
-- Feed root `yt:channelId` omits the `UC` prefix. Read the channel ID from entries or the author URI.
+- Feed root `yt:channelId` can omit the `UC` prefix. Read the channel ID from entries or the author URI.
+- **Playlist feeds are flaky.** The same URL answers 200, 404 or 500 at random (Shorts failed 8 in 12, once 12 in 12).
+  `FeedClient` retries, and "missing" means every attempt said 404. The plain channel feed was reliable (20 in 20) and
+  its links tell Shorts apart, so it vouches for feeds that didn't answer. Tests with recordings can't show this.
+- **Never keep YouTube's cookies.** Keeping one sends UK and EU visitors to its consent page. Without one, the redirect
+  comes straight back. The fixtures passed while every real lookup failed, so check real behaviour with a live run:
+  `uv run pytest -m live -n 0` and the real app in a scratch `UPPYT_HOME`.
+- Textual's own names bite: `remove`, `_id` and `_loop` on a screen or app all break it silently or strangely.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass
+from http.cookiejar import DefaultCookiePolicy
 from typing import Protocol
 from urllib.parse import urljoin, urlsplit
 
@@ -58,6 +59,9 @@ class HttpTransport:
 
     def __init__(self, *, min_interval: float = 0.1, timeout: float = 20.0, client: httpx.Client | None = None):
         self._client = client or httpx.Client(timeout=timeout, headers={"User-Agent": f"uppYT/{__version__}"})
+        # No cookies, ever. Besides being polite, keeping YouTube's cookie is what lands UK and EU visitors on its
+        # consent page. Without one, the same redirect comes straight back to the page asked for.
+        self._client.cookies.jar.set_policy(DefaultCookiePolicy(allowed_domains=[]))
         self._min_interval = min_interval
         self._lock = threading.Lock()
         self._next_slot = 0.0

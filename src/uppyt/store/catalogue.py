@@ -117,7 +117,7 @@ MIGRATIONS: tuple[str, ...] = (
 SCHEMA_VERSION = len(MIGRATIONS)
 LOCK_KEY = "refresh_lock"
 ABSENT_AFTER = 3  # 404s in a row before a feed that used to work counts as gone
-RECHECK_ABSENT = timedelta(days=7)
+RECHECK_ABSENT = timedelta(days=1)  # only enabled feeds get checked, and "absent" might be YouTube being flaky
 MAX_BACKOFF = timedelta(days=1)
 
 

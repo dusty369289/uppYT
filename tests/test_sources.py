@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from tests.support import MKBHD, NOW, FakeTransport, FixedClock, mkbhd_transport, recorded_feed, recorded_page
+from tests.support import MKBHD, NOW, FakeTransport, FixedClock, mkbhd_transport, no_sleep, recorded_feed, recorded_page
 from uppyt.domain.feeds import FeedKind, feed_url
 from uppyt.domain.models import Priority
 from uppyt.sources.channels import (
@@ -74,8 +74,8 @@ def test_an_entry_with_a_nonsense_video_id_is_skipped():
 # The feed client
 
 
-def client(transport, clock=None):
-    return FeedClient(transport, clock or FixedClock())
+def client(transport, clock=None, attempts=6):
+    return FeedClient(transport, clock or FixedClock(), sleep=no_sleep, attempts=attempts)
 
 
 def test_found_missing_and_failed_are_told_apart():
@@ -93,6 +93,74 @@ def test_html_where_a_feed_should_be_is_a_failure_not_a_crash():
     transport = FakeTransport()
     transport.serve_feed(MKBHD, FeedKind.VIDEOS, "<html>consent wall</html>")
     assert isinstance(client(transport).fetch(MKBHD, FeedKind.VIDEOS), Failed)
+
+
+def test_a_flaky_feed_is_retried_until_it_answers():
+    """Real playlist feeds flip between 404, 500 and 200. Shorts failed 8 times in 12 when measured."""
+    url = feed_url(MKBHD, FeedKind.SHORTS)
+    good = Response(200, recorded_feed("mkbhd-shorts"))
+    transport = FakeTransport({url: [Response(404), Response(500), Response(404), good]})
+    assert isinstance(client(transport).fetch(MKBHD, FeedKind.SHORTS), Found)
+    assert len(transport.requests) == 4
+
+
+def test_a_feed_is_only_missing_if_every_attempt_says_so():
+    transport = FakeTransport()
+    assert isinstance(client(transport, attempts=4).fetch(MKBHD, FeedKind.SHORTS), Missing)
+    assert len(transport.requests) == 4
+
+
+def test_any_other_answer_makes_it_a_failure_not_a_no():
+    """All-404 is believable. A 500 among them means YouTube was struggling, so nothing is concluded."""
+    url = feed_url(MKBHD, FeedKind.SHORTS)
+    transport = FakeTransport({url: [Response(500), Response(404)]})
+    assert isinstance(client(transport, attempts=3).fetch(MKBHD, FeedKind.SHORTS), Failed)
+
+
+def test_being_told_to_slow_down_stops_retrying():
+    url = feed_url(MKBHD, FeedKind.SHORTS)
+    transport = FakeTransport({url: Response(429)})
+    answer = client(transport).fetch(MKBHD, FeedKind.SHORTS)
+    assert isinstance(answer, Failed)
+    assert "slow down" in answer.reason
+    assert len(transport.requests) == 1
+
+
+def test_retries_wait_longer_each_time():
+    waits = []
+    FeedClient(FakeTransport(), FixedClock(), sleep=waits.append, attempts=4).fetch(MKBHD, FeedKind.SHORTS)
+    assert waits == sorted(waits)
+    assert len(waits) == 3
+
+
+def test_a_missing_answer_is_remembered_briefly():
+    transport = FakeTransport()
+    clock = FixedClock()
+    feeds = client(transport, clock, attempts=2)
+    feeds.fetch(MKBHD, FeedKind.SHORTS)
+    feeds.fetch(MKBHD, FeedKind.SHORTS)
+    assert len(transport.requests) == 2
+    clock.advance(minutes=6)
+    feeds.fetch(MKBHD, FeedKind.SHORTS)
+    assert len(transport.requests) == 4
+
+
+def test_a_failure_isnt_remembered():
+    transport = FakeTransport()
+    transport.break_feed(MKBHD, FeedKind.SHORTS)
+    feeds = client(transport, attempts=1)
+    feeds.fetch(MKBHD, FeedKind.SHORTS)
+    feeds.fetch(MKBHD, FeedKind.SHORTS)
+    assert len(transport.requests) == 2
+
+
+def test_shorts_are_recognised_from_their_links():
+    assert all(e.is_short for e in parse_feed(recorded_feed("mkbhd-shorts")).entries)
+    assert not any(e.is_short for e in parse_feed(recorded_feed("mkbhd-live")).entries)
+
+
+def test_all_uploads_uses_the_reliable_channel_feed():
+    assert feed_url(MKBHD, FeedKind.ALL).endswith(f"channel_id={MKBHD}")
 
 
 def test_a_feed_isnt_fetched_twice_within_fifteen_minutes():
@@ -182,13 +250,21 @@ def test_escaped_names_come_out_readable():
 
 def test_a_handle_that_doesnt_exist_says_so():
     with pytest.raises(ChannelLookupError, match="no channel at"):
-        PageResolver(FakeTransport()).resolve("@nobody")
+        PageResolver(FakeTransport(), FixedClock()).resolve("@nobody")
+
+
+def test_a_channel_page_is_only_fetched_once_for_a_preview_and_a_follow():
+    transport = mkbhd_transport()
+    resolver = PageResolver(transport, FixedClock())
+    resolver.resolve("@mkbhd")
+    resolver.resolve(MKBHD)
+    assert len(transport.requests) == 1
 
 
 def test_a_network_failure_during_lookup_says_so():
     transport = FakeTransport({"https://www.youtube.com/@x": TransportError("Couldn't reach YouTube: no route")})
     with pytest.raises(ChannelLookupError, match="Couldn't reach YouTube"):
-        PageResolver(transport).resolve("@x")
+        PageResolver(transport, FixedClock()).resolve("@x")
 
 
 # The transport
@@ -231,6 +307,29 @@ def test_redirects_are_followed_within_youtube():
     reply = transport_with(handler).get("https://www.youtube.com/@mkbhd")
     assert reply.text == "ok"
     assert reply.url.endswith("cbrd=1")
+
+
+def test_cookies_are_never_kept():
+    """The first real run found this. Keeping YouTube's cookie landed UK visitors on its consent page."""
+    seen = []
+
+    def handler(request):
+        seen.append(request.headers.get("cookie"))
+        if len(seen) == 1:
+            return httpx.Response(
+                302, headers={"location": "/next", "set-cookie": "SOCS=abc; Domain=youtube.com; Path=/"}
+            )
+        return httpx.Response(200, content=b"ok")
+
+    transport_with(handler).get("https://www.youtube.com/start")
+    assert seen == [None, None]
+
+
+def test_landing_on_the_consent_page_says_so():
+    url = "https://www.youtube.com/@x"
+    consent = Response(200, b"<html>Before you continue</html>", "text/html", "https://consent.youtube.com/ml?x=1")
+    with pytest.raises(ChannelLookupError, match="consent page"):
+        PageResolver(FakeTransport({url: consent}), FixedClock()).resolve("@x")
 
 
 def test_a_redirect_away_from_youtube_is_refused():

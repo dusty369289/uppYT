@@ -42,3 +42,16 @@ Last-Modified. Prefixes confirmed: `UU` all, `UULF` videos, `UUSH` shorts, `UULV
 - **Titles sit on the picture and fade on hover**, leaving only the thumbnail. The Seen button fades too but returns when
   the pointer reaches its corner. Touch screens have no hover, so text stays there. Fade has a 0.12 s delay.
 - Normal is the default priority, so it carries no tag.
+
+## 2026-11-06: the first real run
+
+- **Playlist feeds are flaky, so the feed client retries.** Measured over 12 rounds: Videos failed 5 in 12, Shorts 8 in 12
+  and once 12 in 12, with 404s and 500s mixed in. It doesn't depend on the user agent or pacing. "Missing" now means six
+  attempts all said 404, and anything else stays unknown. This wasn't visible when the plan was written.
+- **All uploads uses the plain channel feed** rather than `UU`. It answered 20 in 20. Its entry links tell Shorts apart,
+  so it vouches for Videos and Shorts when their own feeds didn't answer.
+- **Absent feeds that are switched on are rechecked daily, not weekly**, with only two attempts. A wrong "not offered" on
+  Videos would otherwise leave a channel empty for a week. Polite, because only enabled feeds are ever checked.
+- **No cookies are ever kept.** Keeping YouTube's cookie sends UK and EU visitors to the consent page.
+- **The board shows all kinds by default.** Per-channel toggles already decide what's polled, so hiding Shorts on the
+  board as well would make a channel's enabled Shorts seem missing. The mock-up had Shorts unticked.
