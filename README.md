@@ -47,9 +47,8 @@ It opens in your browser, asks for your name, then asks for a channel. Paste a l
 
 <table>
   <tr>
-    <th width="56%">On your computer</th>
-    <th width="20%">On your phone</th>
-    <th width="24%">In your terminal</th>
+    <th width="75%">On your computer: <code>uv run uppyt</code></th>
+    <th width="25%">On your phone</th>
   </tr>
   <tr>
     <td valign="top">
@@ -59,16 +58,16 @@ It opens in your browser, asks for your name, then asks for a channel. Paste a l
       </picture>
     </td>
     <td valign="top"><img alt="The board at phone width, one card per row." src="docs/img/phone.png"></td>
-    <td valign="top"><img alt="The terminal app: dense rows of priority, channel, age and title." src="docs/img/terminal.png"></td>
   </tr>
   <tr>
-    <td valign="top"><code>uv run uppyt</code></td>
-    <td valign="top">Responsive, with touch-sized controls</td>
-    <td valign="top"><code>uv run uppyt --cli</code></td>
+    <th colspan="2">In your terminal: <code>uv run uppyt --cli</code></th>
+  </tr>
+  <tr>
+    <td colspan="2"><img alt="The terminal app: dense rows of priority, channel, age and title." src="docs/img/terminal.png"></td>
   </tr>
 </table>
 
-| | |
+| Feature | What it does |
 |---|---|
 | **Your priorities** | Must-see, High, Normal or Low for each channel, with head starts you can change |
 | **Your choice of feeds** | Videos, Live, Shorts and Members, switched on per channel |
