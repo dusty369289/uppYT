@@ -82,12 +82,10 @@ It opens in your browser, asks for your name, then asks for a channel. Paste a l
 
 Each priority counts as a number of days newer than a video really is. Each further unseen video from the same channel then counts 7 days older, so one busy channel can't fill the top.
 
-```mermaid
-flowchart LR
-    A["Upload date"] --> B["+ head start<br/>for its priority"]
-    B --> C["− 7 days for each newer<br/>unseen video from that channel"]
-    C --> D["Sort, newest first"]
-```
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/img/diagram-ranking-light.png">
+  <img alt="Upload date, then add the head start for its priority, then take off 7 days for each newer unseen video from that channel, then sort newest first." src="docs/img/diagram-ranking-dark.png">
+</picture>
 
 | Priority | Head start |
 |---|---:|
@@ -153,14 +151,10 @@ uppYT only reads YouTube's public RSS feeds, plus one page when you add a channe
 
 **Feeds can be flaky.** YouTube's per-kind feeds sometimes answer 404 or 500 for a working feed, for around 40 seconds at a time when measured. uppYT works around it like this:
 
-```mermaid
-flowchart TD
-    A["Check a feed"] --> B{"Answered?"}
-    B -- Yes --> C["Save its videos"]
-    B -- "No, after 6 tries" --> D["Videos or Shorts?<br/>Fill in from the channel feed"]
-    D --> E["Check again in 5 minutes,<br/>then 10, 20, 40…"]
-    E --> A
-```
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/img/diagram-flaky-feeds-light.png">
+  <img alt="Check a feed. If it answers, save its videos. If not after 6 tries, Videos and Shorts fill in from the channel feed, then uppYT checks again in 5 minutes, then 10, 20, 40 and so on." src="docs/img/diagram-flaky-feeds-dark.png">
+</picture>
 
 ## Your data
 
@@ -190,13 +184,10 @@ It's published on `http://localhost:8770`, for this computer only, and your data
 
 Server-rendered with FastAPI, Jinja and htmx, so there's no JavaScript build and very little JavaScript. Styles are plain CUBE CSS, and history is in SQLite. Filtering and marking seen still work with JavaScript off.
 
-```mermaid
-flowchart TD
-    W["Web"] & T["Terminal"] & C["Commands"] --> O["Operations"]
-    O --> S["Services"]
-    S --> R["Sources<br/>feeds, channel pages, OPML"] & K["Stores<br/>history, profiles"]
-    R & K --> D["Domain<br/>ranking, feeds, settings"]
-```
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/img/diagram-architecture-light.png">
+  <img alt="Web, Terminal and Commands all call Operations, which call Services. Services use Sources (feeds, channel pages, OPML) and Stores (history, profiles), and both of those use the Domain (ranking, feeds, settings)." src="docs/img/diagram-architecture-dark.png">
+</picture>
 
 All three interfaces call the same operations and hold no logic of their own. A test fails if a feature is missing from any of them.
 

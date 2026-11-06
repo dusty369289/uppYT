@@ -211,6 +211,59 @@ def terminal(browser, scene) -> None:
     page.close()
 
 
+DIAGRAMS = {
+    "ranking": """flowchart LR
+    A["Upload date"] --> B["Add the head start<br/>for its priority"]
+    B --> C["Take off 7 days for<br/>each newer unseen video<br/>from that channel"]
+    C --> D["Sort, newest first"]""",
+    "flaky-feeds": """flowchart LR
+    A["Check a feed"] --> B{"Answered?"}
+    B -- Yes --> C["Save its videos"]
+    B -- "No, after 6 tries" --> D["Videos or Shorts?<br/>Fill in from the channel feed"]
+    D --> E["Check again in 5 minutes,<br/>then 10, 20, 40…"]
+    E --> A""",
+    "architecture": """flowchart LR
+    W["Web"] & T["Terminal"] & C["Commands"] --> O["Operations"]
+    O --> S["Services"]
+    S --> R["Sources<br/>feeds, channel pages, OPML"] & K["Stores<br/>history, profiles"]
+    R & K --> D["Domain<br/>ranking, feeds, settings"]""",
+}
+MERMAID = "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"
+
+
+def diagrams(browser) -> None:
+    """Pictures, not Mermaid blocks: GitHub's mobile app and some browsers show Mermaid as raw text."""
+    for mode, ground, box, ink, line in (
+        ("dark", "#0d1117", "#1f2329", "#ededea", "#9b9ca0"),
+        ("light", "#ffffff", "#f1f1ee", "#141517", "#5a5b60"),
+    ):
+        page = browser.new_page(viewport={"width": 1000, "height": 500}, device_scale_factor=2)
+        page.set_content(f'<!doctype html><body style="margin:0;background:{ground}"><div id="d"></div>')
+        page.add_script_tag(url=MERMAID)
+        for name, source in DIAGRAMS.items():
+            variables = {
+                "primaryColor": box,
+                "primaryBorderColor": line,
+                "primaryTextColor": ink,
+                "lineColor": line,
+                "edgeLabelBackground": ground,
+                "fontFamily": "system-ui, sans-serif",
+                "fontSize": "15px",
+            }
+            page.evaluate(
+                """async ([source, variables]) => {
+                    mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: variables });
+                    const { svg } = await mermaid.render('g' + Date.now(), source);
+                    document.getElementById('d').innerHTML = svg;
+                }""",
+                [source, variables],
+            )
+            page.wait_for_timeout(150)
+            shot = page.locator("#d svg").screenshot(omit_background=True)
+            Image.open(io.BytesIO(shot)).convert("RGBA").save(OUT / f"diagram-{name}-{mode}.png", optimize=True)
+        page.close()
+
+
 def readme_world():
     """The UI tests' world, with feeds that read like real channels."""
     world = build_world()
@@ -231,6 +284,10 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as folder, sync_playwright() as driver:
         browser = driver.chromium.launch()
+        diagrams(browser)
+        if "--diagrams" in sys.argv:
+            browser.close()
+            return
         posters = Posters()
         scene = start_scene("populated", Path(folder) / "scene", world=readme_world())
         url = scene.url
