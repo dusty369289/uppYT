@@ -1,0 +1,11 @@
+.git
+.venv
+config
+data
+tests
+docs
+.test-review
+.ui-baselines
+.ui-report
+.hypothesis
+.ruff_cache

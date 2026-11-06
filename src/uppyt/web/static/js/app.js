@@ -35,9 +35,11 @@
     event.preventDefault();
   });
 
-  // Marking cards seen removes them, so "load more" asks from how many are left, not from a fixed offset.
+  // "Show more" asks for however many are showing now, plus a page. Some may have been marked seen since loading.
   document.body.addEventListener("htmx:configRequest", (event) => {
-    if (event.target.id === "more-link") event.detail.parameters.offset = cards().length;
+    if (event.target.id === "more-link") {
+      event.detail.parameters.show = cards().length + Number(event.target.dataset.pageSize);
+    }
   });
 
   const hideFallbacks = () => document.querySelectorAll("[data-hide-with-js]").forEach((element) => { element.hidden = true; });
@@ -48,8 +50,9 @@
   });
 
   document.body.addEventListener("htmx:afterRequest", (event) => {
-    const form = event.detail.elt;
-    if (!event.detail.successful || !form.matches) return;
+    // The request's own element, since a card's form has already gone by the time this runs.
+    const form = event.detail.requestConfig && event.detail.requestConfig.elt;
+    if (!event.detail.successful || !form) return;
     if (form.matches(".card__seen")) {
       const count = document.querySelector(".tools__count");
       if (count) count.textContent = `${Math.max(0, parseInt(count.textContent, 10) - 1)} unseen`;

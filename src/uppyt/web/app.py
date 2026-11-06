@@ -40,6 +40,7 @@ CSP = (
     "connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 )
 MAX_UPLOAD = 2 * 1024 * 1024
+MAX_CARDS = 2000
 
 
 class NeedsProfile(Exception):
@@ -278,33 +279,28 @@ def create_app(
         window = _optional_int(query.get("window", ""), "The window")
         kinds = _kinds_from(query.getlist("kind")) if query.get("filtered") else None
         tag = query.get("tag") or None
-        offset = _optional_int(query.get("offset", ""), "The offset") or 0
-        view = app_services.board.view(window_days=window, kinds=kinds, tag=tag, offset=max(0, offset))
+        # Cards always come fresh from the top, up to however many are showing. Marking one seen re-scores its channel,
+        # so paging by offset would repeat some cards and skip others.
+        step = app_services.settings.get().page_size
+        show = max(step, _optional_int(query.get("show", ""), "The number of cards") or step)
+        view = app_services.board.view(window_days=window, kinds=kinds, tag=tag, limit=min(show, MAX_CARDS))
         choices = list(WINDOW_CHOICES)
         if view.window_days not in dict(WINDOW_CHOICES):
             choices.append((view.window_days, window_label(view.window_days)))
-        next_offset = view.offset + len(view.cards)
         return {
             "profile": app_services,
             "view": view,
             "window_options": choices,
             "query": board_query(view),
-            "next_offset": next_offset,
+            "next_show": len(view.cards) + step,
+            "step": step,
         }
 
     @implements("web", "board.view")
     @page("/", "Board", ("blank_profile", "populated", "long_titles", "failing_feed", "nothing_unseen", "just_marked"))
     @app.get("/", response_class=HTMLResponse)
     def board(request: Request):
-        app_services = services(request)
-        context = _board_context(request, app_services)
-        if context["view"].offset:
-            return (
-                render(request, "board_more.html", context)
-                if _is_htmx(request)
-                else render(request, "board.html", context)
-            )
-        return render(request, "board.html", context)
+        return render(request, "board.html", _board_context(request, services(request)))
 
     # Seen
 

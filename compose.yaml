@@ -1,0 +1,15 @@
+# uppYT has no logins. Published to this computer only, so put a proxy with authentication in front before changing that.
+# If you put it behind a proxy, add the proxy's hostname to UPPYT_ALLOWED_HOSTS.
+services:
+  uppyt:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8770:8770"
+    environment:
+      UPPYT_ALLOWED_HOSTS: "localhost,127.0.0.1"
+    volumes:
+      - uppyt-home:/home/uppyt
+
+volumes:
+  uppyt-home: # your channels and history, which can't be downloaded again

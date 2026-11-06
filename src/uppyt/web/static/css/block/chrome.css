@@ -6,7 +6,7 @@
 .topbar__nav a:hover { color: var(--ink); text-decoration: underline; }
 .topbar__nav a[aria-current="page"] { color: var(--ink); font-weight: 500; }
 .topbar__who { margin-inline-start: auto; color: var(--muted); }
-.topbar__who a { color: inherit; }
+.topbar__who a { display: inline-block; padding-block: var(--s-1); color: inherit; }
 
 .tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-5); padding: var(--s-3) var(--gutter); color: var(--muted); }
 .tools__kinds { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-4); }
@@ -15,6 +15,13 @@
 .tools__check { padding: 0; border: 0; background: none; color: var(--muted); text-decoration: underline; min-height: 2rem; cursor: pointer; }
 .tools__check:hover { color: var(--ink); }
 @media (pointer: coarse) { .tools__kinds label, .tools__check { min-height: 2.75rem; } }
+
+@media (max-width: 640px) {
+  .topbar { column-gap: var(--s-3); }
+  .topbar__nav { column-gap: var(--s-3); }
+  .tools { column-gap: var(--s-3); }
+  .tools__kinds { order: 1; width: 100%; }
+}
 
 .note-list { padding: 0 var(--gutter) var(--s-3); color: var(--muted); font-size: var(--t-sm); max-width: 90ch; }
 .more { grid-column: 1 / -1; display: flex; justify-content: center; padding: var(--s-5) var(--gutter) var(--s-6); }

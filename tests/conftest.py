@@ -7,10 +7,28 @@ import socket
 import pytest
 
 from tests.harness.timing import plugin as timing
+from tests.harness.ui import report as ui_report
 
 
 def pytest_addoption(parser):
     timing.add_options(parser)
+    parser.getgroup("ui checks").addoption(
+        "--ui-accept", action="store_true", help="approve the current look as this machine's new pixel baselines"
+    )
+
+
+def pytest_sessionstart(session):
+    if not hasattr(session.config, "workerinput") and _running_ui(session.config):
+        ui_report.begin()
+
+
+def pytest_terminal_summary(terminalreporter, config):
+    if _running_ui(config):
+        ui_report.finish(terminalreporter)
+
+
+def _running_ui(config) -> bool:
+    return config.getoption("markexpr", "").strip("'\" ") == "ui"
 
 
 @pytest.hookimpl(tryfirst=True)

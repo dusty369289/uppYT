@@ -6,9 +6,12 @@
   position: absolute; inset: auto 0 0; padding: 2.5rem var(--s-3) .625rem; color: var(--picture-ink); pointer-events: none;
   background: linear-gradient(to top, var(--scrim-strong), var(--scrim-mid) 55%, var(--scrim-none));
 }
-.card__title { font-size: var(--t-base); font-weight: 500; line-height: 1.25; overflow-wrap: anywhere; }
+.card__title {
+  font-size: var(--t-base); font-weight: 500; line-height: 1.25; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
 .card__by { display: flex; align-items: center; gap: .375rem; margin-block-start: .125rem; color: var(--picture-muted); font-size: var(--t-sm); }
-.card__by span { min-width: 0; overflow-wrap: anywhere; }
+.card__by span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card__tag { position: absolute; top: 0; left: 0; padding: .1875rem .4375rem; background: var(--picture-tag); color: var(--picture-ink); font-size: .75rem; font-weight: 600; pointer-events: none; }
 .card__tag--must-see { background: var(--picture-tag-strong); color: var(--on-picture-tag-strong); }
 .card__tag--low { color: var(--picture-muted); font-weight: 400; }

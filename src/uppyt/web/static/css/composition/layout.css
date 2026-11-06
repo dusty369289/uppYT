@@ -1,6 +1,7 @@
 /* Where things sit. Blocks say what things look like. Named after Every Layout's primitives. */
 .stack { display: flex; flex-direction: column; gap: var(--stack-gap, var(--s-4)); }
 .cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cluster-gap, var(--s-3)); }
+.cluster > a:not(.button) { display: inline-flex; align-items: center; min-height: 1.75rem; }
 .push { margin-inline-start: auto; }
 .page { padding: var(--s-5) var(--gutter) var(--s-7); }
 .reading { max-width: var(--reading); }

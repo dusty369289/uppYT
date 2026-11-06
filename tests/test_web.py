@@ -163,18 +163,26 @@ def test_the_board_notes_thin_history(site):
     assert "15 videos" in site.get("/?window=3650").text
 
 
-def test_paging(site):
+def test_show_more_asks_for_a_larger_list(site):
     services = site.services()
     services.settings.update({"page_size": 6})
     services.channels.add("@mkbhd", feeds=[FeedKind.VIDEOS, FeedKind.SHORTS])
     first = site.get("/?window=3650").text
     assert first.count('class="card"') == 6
     assert "Show more" in first
-    assert "offset=6" in first
-    more = site.get("/?window=3650&offset=6", headers=HTMX).text
-    assert more.count('class="card"') == 6
-    assert "<html" not in more
-    assert "<html" in site.get("/?window=3650&offset=6").text
+    assert "show=12" in first
+    second = site.get("/?window=3650&show=12").text
+    assert second.count('class="card"') == 12
+    assert second.index(first.split('data-video="')[1].split('"')[0]) > 0
+    assert 'id="cards"' in second
+
+
+def test_a_silly_number_of_cards_is_handled(site):
+    services = site.services()
+    services.settings.update({"page_size": 6})
+    services.channels.add("@veritasium")
+    assert site.get("/?show=-4").status_code == 200
+    assert site.get("/?show=lots").status_code == 400
 
 
 # Seen

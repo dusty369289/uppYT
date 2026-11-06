@@ -50,7 +50,7 @@ asyncio_default_fixture_loop_scope = "function"
 tmp_path_retention_policy = "failed"
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
 markers = [
-    "ui: browser checks across the page matrix. Run with: pytest -m ui -n 0",
+    "ui: browser checks across the page matrix. Run with: pytest -m ui",
     "live: talks to the real YouTube, to notice format changes. Run with: pytest -m live",
 ]
 

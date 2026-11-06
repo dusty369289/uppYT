@@ -8,6 +8,6 @@
 .channel-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
 .channel-head h1 { overflow-wrap: anywhere; }
 .section { padding-block-start: var(--s-4); border-top: 1px solid var(--line); }
-.section > * + * { margin-block-start: var(--s-3); }
+.section:not(.stack) > * + * { margin-block-start: var(--s-3); }
 .prose { max-width: var(--reading); color: var(--muted); }
 .prose + .prose { margin-block-start: var(--s-2); }

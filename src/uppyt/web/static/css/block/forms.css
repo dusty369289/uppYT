@@ -7,6 +7,7 @@
 .button { display: inline-flex; align-items: center; min-height: 2.5rem; padding: 0 var(--s-4); border: 0; border-radius: var(--radius); background: var(--primary); color: var(--on-primary); font-weight: 500; text-decoration: none; cursor: pointer; }
 .button:hover { opacity: .88; }
 .link-button { display: inline-flex; align-items: center; min-height: 2.5rem; padding: 0 var(--s-1); border: 0; background: none; color: var(--ink); text-decoration: underline; cursor: pointer; }
+@media (pointer: coarse) { .button, .link-button { min-height: 2.75rem; } }
 .checks { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); }
 .checks label { display: flex; align-items: center; gap: .375rem; min-height: 1.75rem; }
 @media (pointer: coarse) { .checks label { min-height: 2.75rem; } }

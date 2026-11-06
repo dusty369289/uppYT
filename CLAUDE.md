@@ -61,7 +61,7 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
 - CUBE layers: `tokens, base, composition, block, utility, exception`. Themes are token-only files. Blocks use tokens only.
 
 ## Tests
-- `uv run pytest` is everything except browser and live tests. `uv run pytest -m ui -n 0` is the browser matrix, and read
+- `uv run pytest` is everything except browser and live tests. `uv run pytest -m ui` is the browser matrix, and read
   `.ui-report/index.html` afterwards. `uv run pytest -m live -n 0` checks YouTube's real formats.
 - Tests never touch the network. Fixtures are **recordings of real public pages and feeds**, never guessed shapes.
 - 10 s hard timeout per test. A hang is a bug, not a limit to raise.
