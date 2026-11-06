@@ -193,6 +193,24 @@ def test_one_404_on_a_working_feed_isnt_the_end_of_it(catalogue):
     assert catalogue.record_missing(MKBHD, FeedKind.VIDEOS, NOW, retry) is FeedStatus.ABSENT
 
 
+def test_a_404_on_a_feed_that_never_worked_isnt_proof_either(catalogue):
+    retry = timedelta(hours=1)
+    assert catalogue.record_missing(MKBHD, FeedKind.VIDEOS, NOW, retry) is FeedStatus.FAILING
+
+
+def test_a_feed_believed_absent_stays_that_way_on_another_404(catalogue):
+    retry = timedelta(hours=1)
+    catalogue.record_missing(MKBHD, FeedKind.SHORTS, NOW, retry, probing=True)
+    assert catalogue.record_missing(MKBHD, FeedKind.SHORTS, NOW, retry) is FeedStatus.ABSENT
+
+
+def test_entries_learned_elsewhere_leave_the_feeds_own_state_alone(catalogue):
+    assert catalogue.record_entries(FeedKind.VIDEOS, entries(MKBHD, 3).entries, NOW) == 3
+    assert catalogue.record_entries(FeedKind.VIDEOS, entries(MKBHD, 3).entries, NOW) == 0
+    assert len(catalogue.videos([MKBHD])) == 3
+    assert catalogue.feed_states([MKBHD]) == {}
+
+
 def test_a_success_clears_failures(catalogue):
     catalogue.record_success(MKBHD, FeedKind.VIDEOS, entries(MKBHD, 1), NOW, LATER)
     catalogue.record_missing(MKBHD, FeedKind.VIDEOS, NOW, timedelta(hours=1))

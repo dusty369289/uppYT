@@ -17,7 +17,7 @@ from sqlalchemy.engine import Engine
 from sqlmodel import Column, Field, Session, SQLModel, col, select
 
 from ..domain.feeds import FEED_CAP, FeedKind, classify
-from ..domain.models import Channel, FeedState, FeedStatus, ParsedFeed, Video
+from ..domain.models import Channel, FeedEntry, FeedState, FeedStatus, ParsedFeed, Video
 
 
 class UTCDateTime(TypeDecorator):
@@ -261,26 +261,7 @@ class Catalogue:
                 session.add(
                     GapRow(channel_id=channel_id, kind=kind.value, after=previous, before=oldest, noticed_at=now)
                 )
-            for entry in feed.entries:
-                video = session.get(VideoRow, entry.video_id)
-                if video is None:
-                    session.add(
-                        VideoRow(
-                            id=entry.video_id,
-                            channel_id=entry.channel_id,
-                            title=entry.title,
-                            published_at=entry.published_at,
-                            views=entry.views,
-                            first_seen_at=now,
-                        )
-                    )
-                else:
-                    video.title = entry.title
-                    video.published_at = entry.published_at
-                    video.views = entry.views if entry.views is not None else video.views
-                    session.add(video)
-                if entry.video_id not in known:
-                    session.add(VideoFeedRow(video_id=entry.video_id, kind=kind.value))
+            self._keep_entries(session, kind, feed.entries, known, now)
             if first_success:
                 row.history_complete = len(feed.entries) < FEED_CAP
                 row.history_from = min((e.published_at for e in feed.entries), default=None)
@@ -293,14 +274,55 @@ class Catalogue:
             session.commit()
             return PollResult(len(new_entries), possible_gap)
 
+    def record_entries(self, kind: FeedKind, entries: Iterable[FeedEntry], now: datetime) -> int:
+        """Videos known to belong to a feed, learned some other way. The feed's own state stays as it was."""
+        items = list(entries)
+        with Session(self._writer) as session:
+            known = set(
+                session.exec(
+                    select(VideoFeedRow.video_id).where(
+                        VideoFeedRow.kind == kind.value, col(VideoFeedRow.video_id).in_([e.video_id for e in items])
+                    )
+                ).all()
+            )
+            self._keep_entries(session, kind, items, known, now)
+            session.commit()
+            return sum(e.video_id not in known for e in items)
+
+    @staticmethod
+    def _keep_entries(
+        session: Session, kind: FeedKind, entries: Iterable[FeedEntry], known: set[str], now: datetime
+    ) -> None:
+        for entry in entries:
+            video = session.get(VideoRow, entry.video_id)
+            if video is None:
+                session.add(
+                    VideoRow(
+                        id=entry.video_id,
+                        channel_id=entry.channel_id,
+                        title=entry.title,
+                        published_at=entry.published_at,
+                        views=entry.views,
+                        first_seen_at=now,
+                    )
+                )
+            else:
+                video.title = entry.title
+                video.published_at = entry.published_at
+                video.views = entry.views if entry.views is not None else video.views
+                session.add(video)
+            if entry.video_id not in known:
+                session.add(VideoFeedRow(video_id=entry.video_id, kind=kind.value))
+
     def record_missing(
         self, channel_id: str, kind: FeedKind, now: datetime, retry: timedelta, *, probing: bool = False
     ) -> FeedStatus:
-        """YouTube said 404. A feed that has worked needs several in a row to count as gone."""
+        """YouTube said 404, every time it was asked. Only a full probe or repeated answers make a feed count as absent,
+        because real feeds answer 404 for a while and then come back."""
         with Session(self._writer) as session:
             row = self._feed_row(session, channel_id, kind)
             row.failures += 1
-            gone = probing or row.last_success_at is None or row.failures >= ABSENT_AFTER
+            gone = probing or row.status == FeedStatus.ABSENT.value or row.failures >= ABSENT_AFTER
             row.status = FeedStatus.ABSENT.value if gone else FeedStatus.FAILING.value
             row.last_checked_at = now
             row.next_check_at = now + (RECHECK_ABSENT if gone else retry)

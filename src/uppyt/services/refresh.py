@@ -60,9 +60,23 @@ class RefreshService:
             report.failed += 1
             log.warning("Feed %s %s: %s", channel_id, kind.value, answer.reason)
             catalogue.record_failure(channel_id, kind, now, tuning.retry_after)
+            self._fill_in(channel_id, kind, now, report)
         else:
             status = catalogue.record_missing(channel_id, kind, now, tuning.retry_after)
             report.failed += int(status is FeedStatus.FAILING)
+            if status is FeedStatus.FAILING:
+                self._fill_in(channel_id, kind, now, report)
+
+    def _fill_in(self, channel_id: str, kind: FeedKind, now: datetime, report: RefreshReport) -> None:
+        """A flaky feed shouldn't cost anyone videos. The plain channel feed is reliable, and its links tell Shorts from
+        the rest, so it covers Videos and Shorts until their own feeds answer again."""
+        if kind not in (FeedKind.VIDEOS, FeedKind.SHORTS):
+            return
+        answer = self._runtime.feeds.fetch(channel_id, FeedKind.ALL, attempts=self._runtime.tuning.recheck_attempts)
+        if isinstance(answer, Found):
+            self._keep_channel_current(channel_id, answer.feed, now)
+            wanted = [e for e in answer.feed.entries if e.is_short == (kind is FeedKind.SHORTS)]
+            report.new_videos += self._runtime.catalogue.record_entries(kind, wanted, now)
 
     def _keep_channel_current(self, channel_id: str, feed: ParsedFeed, now: datetime) -> None:
         """Names change, and a channel added by hand in channels.toml only gets its name from here."""

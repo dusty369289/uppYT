@@ -122,11 +122,77 @@ def test_a_feed_that_flaked_while_adding_is_tried_again_at_the_next_refresh(scen
     working = scene.transport.routes[url]
     scene.transport.routes[url] = Response(500)
     scene.app.channels.add("@veritasium")
-    assert scene.app.board.view().total == 0
+    assert scene.runtime.catalogue.feed_states([SECOND])[(SECOND, FeedKind.VIDEOS)].status is FeedStatus.FAILING
     scene.transport.routes[url] = working
     scene.clock.advance(hours=1)
     scene.app.refresh.run()
+    assert scene.runtime.catalogue.feed_states([SECOND])[(SECOND, FeedKind.VIDEOS)].status is FeedStatus.ACTIVE
     assert scene.app.board.view().total == 4
+
+
+def test_a_feed_that_fails_while_adding_doesnt_leave_the_channel_empty(scene):
+    """The real run found this: Videos answered 404 through every retry, and a whole channel came up empty."""
+    url = feed_url(SECOND, FeedKind.VIDEOS)
+    working = scene.transport.routes[url]
+    del scene.transport.routes[url]
+    channel_feed = feed_url(SECOND, FeedKind.ALL)
+    scene.transport.routes[channel_feed] = Response(
+        200,
+        feed_xml(SECOND, "Veritasium", [("rescued0xxx", "Rescued", NOW)])
+        .replace("</entry>", '<link rel="alternate" href="https://www.youtube.com/watch?v=rescued0xxx"/></entry>')
+        .encode(),
+    )
+    detail = scene.app.channels.add("@veritasium")
+    assert [c.video.title for c in scene.app.board.view().cards] == ["Rescued"]
+    state = next(f for f in detail.feeds if f.kind is FeedKind.VIDEOS)
+    assert state.status is FeedStatus.FAILING  # told apart from "absent", and tried again soon
+    assert state.history_from is None  # the channel feed isn't this feed's history
+
+    scene.transport.routes[url] = working
+    scene.runtime.feeds._cache.clear()
+    scene.clock.advance(hours=1)
+    scene.app.refresh.run()
+    healed = scene.runtime.catalogue.feed_states([SECOND])[(SECOND, FeedKind.VIDEOS)]
+    assert healed.status is FeedStatus.ACTIVE
+    assert healed.history_from is not None
+    assert scene.app.board.view().total == 5
+
+
+def test_a_refresh_during_a_flaky_spell_still_brings_new_videos(scene):
+    scene.app.channels.add("@veritasium")
+    scene.clock.advance(hours=2)
+    scene.runtime.feeds._cache.clear()
+    scene.transport.break_feed(SECOND, FeedKind.VIDEOS)
+    fresh = feed_xml(SECOND, "Veritasium", [("newest00xxx", "Newest", scene.clock.now)])
+    scene.transport.serve_feed(
+        SECOND,
+        FeedKind.ALL,
+        fresh.replace("</entry>", '<link rel="alternate" href="https://www.youtube.com/watch?v=newest00xxx"/></entry>'),
+    )
+    report = scene.app.refresh.run()
+    assert report.failed == 1
+    assert report.new_videos == 1
+    assert "Newest" in [c.video.title for c in scene.app.board.view(window_days=60).cards]
+
+
+def test_the_channel_feed_only_fills_in_the_right_kind(scene):
+    scene.transport.serve_feed(SECOND, FeedKind.SHORTS, feed_xml(SECOND, "Veritasium", []))
+    scene.app.channels.add("@veritasium", feeds=[FeedKind.SHORTS])
+    scene.clock.advance(hours=2)
+    scene.runtime.feeds._cache.clear()
+    scene.transport.break_feed(SECOND, FeedKind.SHORTS)
+    mixed = feed_xml(SECOND, "Veritasium", [("plain000xxx", "Plain", NOW), ("short000xxx", "A short", NOW)])
+    parts = mixed.split("</entry>")
+    mixed = (
+        parts[0]
+        + '<link rel="alternate" href="https://www.youtube.com/watch?v=plain000xxx"/></entry>'
+        + parts[1]
+        + '<link rel="alternate" href="https://www.youtube.com/shorts/short000xxx"/></entry>'
+        + parts[2]
+    )
+    scene.transport.serve_feed(SECOND, FeedKind.ALL, mixed)
+    scene.app.refresh.run()
+    assert [c.video.title for c in scene.app.board.view(window_days=3650).cards] == ["A short"]
 
 
 def test_a_feed_wrongly_called_absent_corrects_itself(scene):

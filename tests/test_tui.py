@@ -230,7 +230,7 @@ async def test_feeds_a_channel_doesnt_offer_are_labelled(scene):
         await pilot.click("#link")
         await pilot.press("enter")
         await settle(app, pilot)
-        assert "not offered" in str(app.screen.query_one("#feed-shorts", Checkbox).label)
+        assert "not found" in str(app.screen.query_one("#feed-shorts", Checkbox).label)
         assert not app.screen.query_one("#feed-live", Checkbox).value
 
 

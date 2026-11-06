@@ -55,3 +55,7 @@ Last-Modified. Prefixes confirmed: `UU` all, `UULF` videos, `UUSH` shorts, `UULV
 - **No cookies are ever kept.** Keeping YouTube's cookie sends UK and EU visitors to the consent page.
 - **The board shows all kinds by default.** Per-channel toggles already decide what's polled, so hiding Shorts on the
   board as well would make a channel's enabled Shorts seem missing. The mock-up had Shorts unticked.
+- **The channel feed fills in when Videos or Shorts fail**, so a flaky spell costs no videos, and a channel can't come up
+  empty just after being added. Adding 3Blue1Brown hit this for real: Videos answered 404 through all six attempts.
+- **A failed poll never makes a feed absent on its first try.** Only a full probe or three failures in a row do.
+- **The label is "not found", not "not offered".** It reports what YouTube answered, which may be wrong for a while.

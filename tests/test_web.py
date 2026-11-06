@@ -239,7 +239,7 @@ def test_the_add_flow_previews_then_follows(site):
     assert preview.status_code == 200
     assert "Marques Brownlee" in preview.text
     assert "Follow Marques Brownlee" in preview.text
-    assert "(not offered)" not in preview.text.split("Videos")[0]
+    assert "(not found)" not in preview.text.split("Videos")[0]
     assert site.services().store.subscriptions() == {}
     response = site.post(
         "/channels",
@@ -254,7 +254,7 @@ def test_the_add_flow_previews_then_follows(site):
 
 def test_the_preview_marks_feeds_a_channel_doesnt_offer(site):
     site.services()
-    assert "Members (not offered)" in site.post("/channels/lookup", data={"link": "@veritasium"}).text
+    assert "Members (not found)" in site.post("/channels/lookup", data={"link": "@veritasium"}).text
 
 
 def test_a_bad_link_comes_back_with_advice_and_the_text_kept(site):

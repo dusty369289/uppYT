@@ -24,7 +24,7 @@
       <span class="label" id="feeds-label">Feeds</span>
       <div class="checks fields-value" role="group" aria-labelledby="feeds-label">
         {% for feed in detail.feeds %}
-        <label><input type="checkbox" name="feeds" value="{{ feed.kind.value }}" {% if feed.enabled %}checked{% endif %}>{{ feed.label }}{% if feed.status and feed.status.value == "absent" %} (not offered){% endif %}{% if feed.status and feed.status.value == "failing" %} (can't update){% endif %}</label>
+        <label><input type="checkbox" name="feeds" value="{{ feed.kind.value }}" {% if feed.enabled %}checked{% endif %}>{{ feed.label }}{% if feed.status and feed.status.value == "absent" %} (not found){% endif %}{% if feed.status and feed.status.value == "failing" %} (can't update){% endif %}</label>
         {% endfor %}
       </div>
       <label class="label" for="tags">Tags</label>

@@ -82,7 +82,7 @@ class FeedInfo:
     @property
     def state_text(self) -> str:
         if self.status is FeedStatus.ABSENT:
-            return "Not offered by this channel"
+            return "Not found on YouTube"
         if self.status is FeedStatus.FAILING:
             return "Couldn't be updated. uppYT will try again"
         if self.last_success_at is None:

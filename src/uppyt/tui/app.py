@@ -233,7 +233,7 @@ class AddChannelScreen(ModalScreen[bool]):
             box = self.query_one(f"#feed-{kind.value}", Checkbox)
             if preview.available.get(kind) is False:
                 box.value = False
-                box.label = f"{SPECS[kind].label} (not offered)"
+                box.label = f"{SPECS[kind].label} (not found)"
         self.query_one("#choices").display = True
         self.query_one("#priority", Select).focus()
 

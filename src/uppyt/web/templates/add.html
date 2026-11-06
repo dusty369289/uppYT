@@ -36,7 +36,7 @@
       <div class="checks fields-value" role="group" aria-labelledby="feeds-label">
         {% for spec in toggles %}
         {% set exists = preview.available.get(spec.kind) %}
-        <label><input type="checkbox" name="feeds" value="{{ spec.kind.value }}" {% if spec.default_on and exists is not false %}checked{% endif %}>{{ spec.label }}{% if exists is false %} (not offered){% endif %}</label>
+        <label><input type="checkbox" name="feeds" value="{{ spec.kind.value }}" {% if spec.default_on and exists is not false %}checked{% endif %}>{{ spec.label }}{% if exists is false %} (not found){% endif %}</label>
         {% endfor %}
       </div>
       <label class="label" for="tags">Tags</label>
