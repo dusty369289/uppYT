@@ -187,9 +187,9 @@ SCENES = {
 }
 
 
-def start_scene(name: str, folder: Path) -> Scene:
+def start_scene(name: str, folder: Path, *, world: FakeTransport | None = None) -> Scene:
     clock = FixedClock()
-    transport = build_world()
+    transport = world or build_world()
     runtime = Runtime(Paths(folder), clock=clock, transport=transport, sleep=no_sleep)
     scene = Scene(name, runtime, transport, clock)
     SCENES[name](scene)

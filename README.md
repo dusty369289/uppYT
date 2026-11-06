@@ -1,9 +1,35 @@
-# uppYT
+<a href="#readme">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="docs/img/banner-light.png">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/banner-dark.png">
+    <img alt="uppYT: the channels you follow, ranked by how much you care." src="docs/img/banner-dark.png" width="100%">
+  </picture>
+</a>
 
-A board of recent uploads from the YouTube channels you follow, ranked by how much you care about each one. Clear cards
-as you watch them. No account and no API key, and everything stays on your computer.
+<p align="center">
+  <a href="https://github.com/dusty369289/uppYT/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/dusty369289/uppYT/actions/workflows/tests.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-111?style=flat-square"></a>
+  <img alt="Python 3.14" src="https://img.shields.io/badge/python-3.14-111?style=flat-square">
+  <img alt="No account" src="https://img.shields.io/badge/account-not_needed-111?style=flat-square">
+  <img alt="No API key" src="https://img.shields.io/badge/API_key-not_needed-111?style=flat-square">
+</p>
 
-![The board, showing a grid of video thumbnails with their titles on top](docs/img/board.png)
+<p align="center">
+  <a href="#start"><b>Start</b></a> &nbsp;·&nbsp;
+  <a href="#how-the-board-is-ordered"><b>Ranking</b></a> &nbsp;·&nbsp;
+  <a href="#in-the-terminal"><b>Terminal</b></a> &nbsp;·&nbsp;
+  <a href="#what-to-expect"><b>Limits</b></a> &nbsp;·&nbsp;
+  <a href="#docker"><b>Docker</b></a> &nbsp;·&nbsp;
+  <a href="#under-the-hood"><b>Under the hood</b></a>
+</p>
+
+YouTube decides what you see next. **uppYT lets you decide.** Give each channel a priority, and recent uploads line up by how much you care about them, not by what an algorithm wants you to click. Clear cards as you watch them. It runs on your own computer, with no account and no API key.
+
+<p align="center">
+  <img alt="Hovering a card clears its words to show the whole thumbnail. Pressing Seen removes the card, and Undo brings it back." src="docs/img/demo.gif" width="820">
+</p>
+
+<sub>The channels and thumbnails in these pictures are made up. <a href="docs/img/CREDITS.md">Credits</a>.</sub>
 
 ## Start
 
@@ -15,59 +41,85 @@ cd uppYT
 uv run uppyt
 ```
 
-It opens in your browser, asks for your name, then asks for a channel. Paste a link like
-`https://www.youtube.com/@name`, choose a priority, and you have a board.
+It opens in your browser, asks for your name, then asks for a channel. Paste a link like `https://www.youtube.com/@name`, pick a priority, and you have a board.
 
-Prefer the terminal? `uv run uppyt --cli` opens the same thing as dense rows of text, driven by the keyboard.
+## One app, three ways in
+
+<table>
+  <tr>
+    <th width="56%">On your computer</th>
+    <th width="20%">On your phone</th>
+    <th width="24%">In your terminal</th>
+  </tr>
+  <tr>
+    <td valign="top">
+      <picture>
+        <source media="(prefers-color-scheme: light)" srcset="docs/img/board-light.png">
+        <img alt="The board: a grid of thumbnails with titles on top, and priority tags on the corners." src="docs/img/board-dark.png">
+      </picture>
+    </td>
+    <td valign="top"><img alt="The board at phone width, one card per row." src="docs/img/phone.png"></td>
+    <td valign="top"><img alt="The terminal app: dense rows of priority, channel, age and title." src="docs/img/terminal.png"></td>
+  </tr>
+  <tr>
+    <td valign="top"><code>uv run uppyt</code></td>
+    <td valign="top">Responsive, with touch-sized controls</td>
+    <td valign="top"><code>uv run uppyt --cli</code></td>
+  </tr>
+</table>
+
+| | |
+|---|---|
+| **Your priorities** | Must-see, High, Normal or Low for each channel, with head starts you can change |
+| **Your choice of feeds** | Videos, Live, Shorts and Members, switched on per channel |
+| **Nothing gets lost** | Opening a video never clears it. Press **Seen** when you're done, and undo any time |
+| **Keeps its history** | Builds up a record of uploads on your computer, beyond what YouTube's feeds list |
+| **Tags and filters** | Filter by tag, by kind of video, and by how far back to look |
+| **Shared computers** | A profile for each person, with their own channels and seen list |
+| **Comes and goes with you** | OPML import and export, so your list works with any RSS reader |
+| **Light and dark** | Follows your device, or set it yourself |
 
 ## How the board is ordered
 
-Each priority counts as a number of days newer than a video really is:
+Each priority counts as a number of days newer than a video really is. Each further unseen video from the same channel then counts 7 days older, so one busy channel can't fill the top.
+
+```mermaid
+flowchart LR
+    A["Upload date"] --> B["+ head start<br/>for its priority"]
+    B --> C["− 7 days for each newer<br/>unseen video from that channel"]
+    C --> D["Sort, newest first"]
+```
 
 | Priority | Head start |
-|---|---|
-| Must-see | 56 days |
-| High | 28 days |
-| Normal | 7 days |
-| Low | 0 days |
+|---|---:|
+| **Must-see** | 56 days |
+| **High** | 28 days |
+| **Normal** | 7 days |
+| **Low** | 0 days |
 
-So a 3-week-old High video ranks above yesterday's Normal one. Each further unseen video from the same channel then counts
-as 7 days older, so one busy channel can't fill the top. All of these numbers are yours to change in Settings, and a repeat
-penalty of 0 turns that part off.
+Here's how that plays out for four videos from four different channels:
+
+| | Video | Really | Head start | Counts as |
+|---:|---|---:|---:|---:|
+| 1 | Must-see, 3 days old | −3 | +56 | **+53** |
+| 2 | High, 21 days old | −21 | +28 | **+7** |
+| 3 | Normal, 1 day old | −1 | +7 | **+6** |
+| 4 | Low, from today | 0 | 0 | **0** |
+
+So a 3-week-old High video ranks above yesterday's Normal one. Every number is yours to change in Settings, and a repeat penalty of 0 turns that part off. Time passing doesn't reshuffle anything, so your board stays as you left it until something new arrives.
 
 The board looks back 2 months by default. Change it from the board, or give one channel its own window.
 
-Opening a video doesn't clear it. Press **Seen** when you're done with it, and undo if you change your mind.
+## In the terminal
 
-## What to expect
+`uv run uppyt --cli` has every feature of the web app, as dense rows driven by the keyboard.
 
-uppYT only reads YouTube's public RSS feeds, plus one page when you add a channel to find its ID and picture. That keeps it
-simple, but feeds have limits, and uppYT is upfront about them:
+<kbd>j</kbd> <kbd>k</kbd> move &nbsp; <kbd>s</kbd> seen &nbsp; <kbd>u</kbd> undo &nbsp; <kbd>o</kbd> open &nbsp; <kbd>a</kbd> add &nbsp; <kbd>c</kbd> channels &nbsp; <kbd>v</kbd> seen list &nbsp; <kbd>/</kbd> filter &nbsp; <kbd>r</kbd> refresh &nbsp; <kbd>,</kbd> settings &nbsp; <kbd>i</kbd> import, export, back up &nbsp; <kbd>p</kbd> profile &nbsp; <kbd>?</kbd> help
 
-- **New channels start thin.** Each feed lists only the newest 15 videos, so older ones can't be fetched. The board fills in
-  over time, and each channel's page says where its history starts.
-- **Keep it running, or schedule it.** uppYT checks hourly while it's open. If a channel uploads more than 15 videos while
-  it's closed, some can be missed, and its page says when that may have happened. To check while it's closed, schedule
-  `uv run uppyt refresh` with cron or a timer.
-- **No search and no durations.** Feeds don't provide them.
-- **Feeds can be flaky.** YouTube sometimes answers wrongly at random, so uppYT retries, and tries again later if that fails.
+The web board has <kbd>j</kbd> <kbd>k</kbd> <kbd>s</kbd> <kbd>u</kbd> <kbd>o</kbd> too.
 
-## Your data
-
-```
-config/<profile>/channels.toml   channels, priorities, feeds and tags. Safe to edit by hand
-config/<profile>/settings.toml   only what you've changed
-config/<profile>/seen.json       what you've marked as seen
-data/catalogue.db                video history, shared by profiles
-```
-
-**History can't be downloaded again**, so keep `data/`. Settings has a backup button, or run `uv run uppyt backup`. Set
-`UPPYT_HOME` to keep all of this somewhere else.
-
-Each person can have a profile, with their own channels and seen list. Profiles keep lists apart, but they aren't private:
-anyone who can open uppYT can open any profile. It only listens on your own computer unless you pass `--host`.
-
-## From the command line
+<details>
+<summary><b>Commands for scripts and cron</b></summary>
 
 ```sh
 uppyt channels add @name --priority high --feeds videos,shorts --tags science
@@ -80,17 +132,52 @@ uppyt seen --undo
 uppyt refresh
 uppyt import channels.opml
 uppyt export channels.opml
+uppyt backup
 ```
 
-Add `--profile NAME` if there's more than one profile, and `--help` to any command for the rest. From a clone, put `uv run`
-in front.
+Add `--profile NAME` if there's more than one profile, and `--help` to any command for the rest. From a clone, put `uv run` in front.
 
-### Terminal keys
+</details>
 
-`j`/`k` move, `s` seen, `u` undo, `o` open, `a` add a channel, `c` channels, `v` seen list, `/` filter, `r` refresh, `,` settings,
-`i` import, export and back up, `p` switch profile, `?` help, `q` quit.
+## What to expect
 
-The web board has `j`, `k`, `s`, `u` and `o` too.
+uppYT only reads YouTube's public RSS feeds, plus one page when you add a channel to find its ID and picture. That keeps it simple and free, but feeds have limits, and uppYT is upfront about them.
+
+> [!IMPORTANT]
+> **New channels start thin.** Each feed lists only the newest 15 videos, so older ones can't be fetched. The board fills in over time, and each channel's page says where its history starts.
+
+> [!TIP]
+> **Keep it running, or schedule it.** uppYT checks hourly while it's open. If a channel uploads more than 15 videos between checks, some can be missed, and its page says when that may have happened. To keep checking while it's closed, schedule `uv run uppyt refresh` with cron or a timer.
+
+> [!NOTE]
+> **No search and no durations.** Feeds don't provide them, so channels are added by link, and cards don't show a length.
+
+**Feeds can be flaky.** YouTube's per-kind feeds sometimes answer 404 or 500 for a working feed, for around 40 seconds at a time when measured. uppYT works around it like this:
+
+```mermaid
+flowchart TD
+    A["Check a feed"] --> B{"Answered?"}
+    B -- Yes --> C["Save its videos"]
+    B -- "No, after 6 tries" --> D["Videos or Shorts?<br/>Fill in from the channel feed"]
+    D --> E["Check again in 5 minutes,<br/>then 10, 20, 40…"]
+    E --> A
+```
+
+## Your data
+
+Everything stays in two folders, both ignored by git:
+
+```
+config/<profile>/channels.toml   channels, priorities, feeds and tags. Safe to edit by hand
+config/<profile>/settings.toml   only what you've changed
+config/<profile>/seen.json       what you've marked as seen
+data/catalogue.db                video history, shared by profiles
+```
+
+> [!CAUTION]
+> **History can't be downloaded again**, so keep `data/`. Settings has a backup button, or run `uv run uppyt backup`. Set `UPPYT_HOME` to keep all of this somewhere else.
+
+Profiles keep lists apart, but they aren't private: anyone who can open uppYT can open any profile. It only listens on your own computer unless you pass `--host`.
 
 ## Docker
 
@@ -98,20 +185,40 @@ The web board has `j`, `k`, `s`, `u` and `o` too.
 docker compose up -d
 ```
 
-It's published on `http://localhost:8770`, for this computer only. Your data lives in a named volume. There are no logins, so
-put a proxy with authentication in front before exposing it, and add its hostname to `UPPYT_ALLOWED_HOSTS`.
+It's published on `http://localhost:8770`, for this computer only, and your data lives in a named volume. There are no logins, so put a proxy with authentication in front before exposing it, and add its hostname to `UPPYT_ALLOWED_HOSTS`.
 
-## Developing
+## Under the hood
+
+Server-rendered with FastAPI, Jinja and htmx, so there's no JavaScript build and very little JavaScript. Styles are plain CUBE CSS, and history is in SQLite. Filtering and marking seen still work with JavaScript off.
+
+```mermaid
+flowchart TD
+    W["Web"] & T["Terminal"] & C["Commands"] --> O["Operations"]
+    O --> S["Services"]
+    S --> R["Sources<br/>feeds, channel pages, OPML"] & K["Stores<br/>history, profiles"]
+    R & K --> D["Domain<br/>ranking, feeds, settings"]
+```
+
+All three interfaces call the same operations and hold no logic of their own. A test fails if a feature is missing from any of them.
+
+<details>
+<summary><b>Developing</b></summary>
 
 ```sh
-uv run pytest            # everything except the browser and live checks
-uv run pytest -m ui      # every page, at five widths, light and dark. Then read .ui-report/index.html
+uv run pytest                # everything except the browser and live checks
+uv run pytest -m ui          # every page, at five widths, light and dark. Then read .ui-report/index.html
 uv run pytest -m live -n 0   # checks that YouTube's formats haven't changed
 ```
 
-`CLAUDE.md` has the architecture and rules, and `docs/decisions.md` has why things are the way they are.
+- **Timing review:** a test straying from its usual time stays flagged until it recovers or someone accepts it with a reason.
+- **Flaky tests:** a test that fails then passes on the same code stays flagged until someone explains it.
+- **Browser checks:** accessibility, overflow, tap targets, keyboard use and page weight, plus a contact sheet of every screen and pixel baselines kept local to your machine.
+- **Tests never touch the network**, and their fixtures are recordings of real public feeds.
+
+[`CLAUDE.md`](CLAUDE.md) has the architecture and rules, and [`docs/decisions.md`](docs/decisions.md) has why things are the way they are. `scripts/make_readme_assets.py` regenerates these pictures from the running app.
+
+</details>
 
 ## Licence
 
-[MIT](LICENSE). IBM Plex Sans is under the [SIL Open Font License](src/uppyt/web/static/fonts/OFL-ibm-plex-sans.txt).
-uppYT isn't affiliated with YouTube.
+[MIT](LICENSE). IBM Plex Sans is under the [SIL Open Font License](src/uppyt/web/static/fonts/OFL-ibm-plex-sans.txt), and the image credits are [here](docs/img/CREDITS.md). uppYT isn't affiliated with YouTube.
