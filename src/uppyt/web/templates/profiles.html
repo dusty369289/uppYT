@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Profiles - uppYT{% endblock %}
+{% block main %}
+<div class="page stack reading">
+  <h1>Who's watching?</h1>
+  <ul class="rows">
+    {% for name in names %}
+    <li class="row">
+      <span class="row__main row__title">{{ name }}</span>
+      {% if profile_name == name %}
+      <span class="row__side">Current</span>
+      {% else %}
+      <form method="post" action="/profiles/use"><input type="hidden" name="name" value="{{ name }}"><button class="link-button" type="submit" aria-label="Switch to {{ name }}">Switch</button></form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  <form class="stack section" method="post" action="/profiles">
+    <h2>Add a profile</h2>
+    <div class="stack">
+      <label for="name">Name</label>
+      <input class="input" id="name" name="name" type="text" value="{{ typed | default('') }}" autocomplete="off" required>
+      {% if problem %}<p class="problem" role="alert">{{ problem }}</p>{% endif %}
+    </div>
+    <div><button class="button" type="submit">Create profile</button></div>
+    <p class="prose">Profiles keep lists apart. They aren't private: anyone who can open uppYT can open any profile.</p>
+  </form>
+</div>
+{% endblock %}

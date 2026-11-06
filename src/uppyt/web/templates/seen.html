@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+{% block title %}Seen - uppYT{% endblock %}
+{% block main %}
+<div class="page stack">
+  <h1>Seen</h1>
+  {% if not page.items %}
+  <p class="prose">Nothing marked as seen yet. Cards you mark on the board land here, and you can put them back at any time.</p>
+  {% else %}
+  <p class="muted">{{ page.total }} marked, most recent first.</p>
+  <ul class="rows">
+    {% for item in page.items %}
+    <li class="row">
+      {% if item.channel %}{{ avatar(item.channel, "avatar--row") }}{% endif %}
+      <div class="row__main">
+        <a class="row__title" href="{{ item.video.url }}" target="_blank" rel="noopener noreferrer">{{ item.video.title }}</a>
+        <p class="row__sub">{% if item.channel %}{{ item.channel.name }}, {% endif %}{{ item.age }}</p>
+      </div>
+      <form method="post" action="/seen/{{ item.video.id }}/undo"><button class="link-button" type="submit" aria-label="Put back on the board: {{ item.video.title }}">Put back</button></form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if page.has_more %}<p><a href="/seen?offset={{ page.offset + page.limit }}">Show more</a></p>{% endif %}
+  {% endif %}
+</div>
+{% endblock %}

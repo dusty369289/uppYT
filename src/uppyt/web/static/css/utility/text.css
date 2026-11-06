@@ -1,0 +1,5 @@
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); border: 0; white-space: nowrap; }
+.skip-link { position: absolute; left: var(--s-2); top: var(--s-2); z-index: 20; padding: var(--s-2); background: var(--primary); color: var(--on-primary); transform: translateY(-300%); }
+.skip-link:focus { transform: none; }
+.muted { color: var(--muted); }
+.nums { font-variant-numeric: tabular-nums; }

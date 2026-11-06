@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Importing - uppYT{% endblock %}
+{% block main %}
+<div class="page stack reading" >
+  <h1>Importing channels</h1>
+  <div id="job" class="stack" role="status" {% if not job.finished %}hx-get="/import/{{ job.id }}" hx-trigger="every 1s" hx-select="#job" hx-swap="outerHTML"{% endif %}>
+    {% if not job.finished %}
+    <p>{% if job.total %}{{ job.done }} of {{ job.total }} channels done.{% else %}Reading the file.{% endif %} It's safe to leave this page.</p>
+    {% elif job.problem %}
+    <p class="problem" role="alert">{{ job.problem }}</p>
+    <p><a href="/settings#transfer">Try another file</a></p>
+    {% else %}
+    <p>{{ job.report.summary }}</p>
+    {% if job.report.failures %}
+    <ul class="rows">
+      {% for title, reason in job.report.failures %}<li class="row"><div class="row__main"><span class="row__title">{{ title }}</span><p class="row__sub">{{ reason }}</p></div></li>{% endfor %}
+    </ul>
+    {% endif %}
+    <p><a href="/">Go to your board</a></p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

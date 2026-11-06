@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+{% block title %}{{ detail.channel.name }} - uppYT{% endblock %}
+{% block main %}
+<div class="page stack reading">
+  <div class="channel-head">
+    {{ avatar(detail.channel, "avatar--large") }}
+    <div>
+      <h1>{{ detail.channel.name }}</h1>
+      <p class="muted">{% if detail.channel.handle %}{{ detail.channel.handle }}, {% endif %}{% if detail.added_at %}added {{ detail.added_at | date }}, {% endif %}{{ detail.unseen }} unseen.
+        <a href="{{ detail.channel.url }}" target="_blank" rel="noopener noreferrer">Open on YouTube</a></p>
+    </div>
+  </div>
+  {% if problem %}<p class="problem" role="alert">{{ problem }}</p>{% endif %}
+  <form class="stack section" method="post" action="/channels/{{ detail.channel.id }}">
+    <div class="fields">
+      <label class="label" for="priority">Priority</label>
+      <div class="fields-value">
+        <select class="select" id="priority" name="priority">
+          {% for level in Priority | reverse %}<option value="{{ level.key }}" {% if level == detail.subscription.priority %}selected{% endif %}>{{ level.label }}</option>{% endfor %}
+        </select>
+        <p class="hint">Currently counts as {{ "%g" | format(detail.head_start_days) }} days newer on your board.</p>
+      </div>
+      <span class="label" id="feeds-label">Feeds</span>
+      <div class="checks fields-value" role="group" aria-labelledby="feeds-label">
+        {% for feed in detail.feeds %}
+        <label><input type="checkbox" name="feeds" value="{{ feed.kind.value }}" {% if feed.enabled %}checked{% endif %}>{{ feed.label }}{% if feed.status and feed.status.value == "absent" %} (not offered){% endif %}{% if feed.status and feed.status.value == "failing" %} (can't update){% endif %}</label>
+        {% endfor %}
+      </div>
+      <label class="label" for="tags">Tags</label>
+      <div class="fields-value"><input class="input" id="tags" name="tags" type="text" value="{{ detail.subscription.tags | join(', ') }}" autocomplete="off"><p class="hint">Separate with commas.</p></div>
+      <label class="label" for="window">Own window</label>
+      <div class="fields-value"><input class="input input--number" id="window" name="window" type="text" inputmode="numeric" value="{{ detail.subscription.window_days or '' }}" autocomplete="off"><p class="hint">Days. Leave empty to follow the board.</p></div>
+    </div>
+    <div class="cluster"><button class="button" type="submit">Save changes</button><a class="push" href="/channels/{{ detail.channel.id }}/remove">Stop following</a></div>
+  </form>
+  {% if detail.history_notes or detail.also_offers %}
+  <div class="section">
+    <h2>History</h2>
+    {% for note in detail.history_notes %}<p class="prose">{{ note }}</p>{% endfor %}
+    {% if detail.also_offers %}<p class="prose">This channel also has these feeds, which uppYT doesn't use: {{ detail.also_offers | join(", ") }}.</p>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

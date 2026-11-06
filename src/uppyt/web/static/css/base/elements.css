@@ -1,0 +1,39 @@
+/* Foundations: the typeface, the scales every block draws from, and element defaults. */
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400; font-display: swap; src: url("/static/fonts/ibm-plex-sans-400.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 500; font-display: swap; src: url("/static/fonts/ibm-plex-sans-500.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600; font-display: swap; src: url("/static/fonts/ibm-plex-sans-600.woff2") format("woff2"); }
+
+:root {
+  --font: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --t-sm: .8125rem;
+  --t-base: .9375rem;
+  --t-md: 1.125rem;
+  --t-lg: 1.625rem;
+  --s-1: .25rem;
+  --s-2: .5rem;
+  --s-3: .75rem;
+  --s-4: 1rem;
+  --s-5: 1.25rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+  --radius: 3px;
+  --gutter: var(--s-5);
+  --reading: 62ch;
+}
+
+@media (max-width: 640px) { :root { --gutter: var(--s-3); } }
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 400 var(--t-base)/1.4 var(--font); }
+h1, h2, h3, p, ul, dl, dd, fieldset, figure { margin: 0; padding: 0; }
+ul { list-style: none; }
+fieldset { border: 0; min-width: 0; }
+h1 { font-size: var(--t-lg); font-weight: 600; line-height: 1.2; letter-spacing: -.01em; text-wrap: balance; }
+h2 { font-size: var(--t-md); font-weight: 600; line-height: 1.25; }
+a { color: inherit; text-underline-offset: 2px; }
+img { display: block; max-width: 100%; }
+button, input, select { font: inherit; color: inherit; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); width: 1rem; height: 1rem; margin: 0; flex: none; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

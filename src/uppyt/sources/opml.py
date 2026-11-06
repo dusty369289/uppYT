@@ -61,7 +61,7 @@ def parse_opml(data: str | bytes) -> tuple[list[OpmlChannel], int]:
         if outline.get("uppytPriority"):
             try:
                 priority = Priority.parse(outline.get("uppytPriority", ""))
-            except ValueError:
+            except UserError:
                 priority = None
         found.setdefault(
             channel_id,

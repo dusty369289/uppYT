@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import IntEnum, StrEnum
 
+from .errors import UserError
 from .feeds import DEFAULT_ON, FeedKind
 
 CHANNEL_ID = re.compile(r"^UC[\w-]{22}$")
@@ -35,7 +36,7 @@ class Priority(IntEnum):
             return cls[text.strip().replace("-", "_").upper()]
         except KeyError:
             names = ", ".join(p.label for p in cls)
-            raise ValueError(f"{text!r} isn't a priority. Choose one of: {names}.") from None
+            raise UserError(f"{text!r} isn't a priority. Choose one of: {names}.") from None
 
 
 class FeedStatus(StrEnum):

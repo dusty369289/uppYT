@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Welcome - uppYT{% endblock %}
+{% block main %}
+<div class="page stack reading">
+  <h1>Welcome to uppYT</h1>
+  <p class="prose">uppYT shows recent uploads from the YouTube channels you follow, ranked by how much you care. Everything stays on this computer. Start by naming your profile.</p>
+  <form class="stack" method="post" action="/profiles">
+    <div class="stack">
+      <label for="name">Your name</label>
+      <input class="input" id="name" name="name" type="text" value="{{ typed | default('') }}" autocomplete="off" required>
+      {% if problem %}<p class="problem" role="alert">{{ problem }}</p>{% endif %}
+    </div>
+    <div><button class="button" type="submit">Create profile</button></div>
+  </form>
+</div>
+{% endblock %}

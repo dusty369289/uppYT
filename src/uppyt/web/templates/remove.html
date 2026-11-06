@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Stop following {{ detail.channel.name }} - uppYT{% endblock %}
+{% block main %}
+<div class="page stack reading">
+  <h1>Stop following {{ detail.channel.name }}?</h1>
+  <p class="prose">It leaves your board and your priority and tags for it are forgotten. Its history is kept, so following it again brings its videos back.</p>
+  <form class="cluster" method="post" action="/channels/{{ detail.channel.id }}/remove">
+    <button class="button" type="submit">Stop following {{ detail.channel.name }}</button>
+    <a href="/channels/{{ detail.channel.id }}">Keep following</a>
+  </form>
+</div>
+{% endblock %}

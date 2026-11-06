@@ -1,0 +1,27 @@
+{% macro avatar(channel, class="") -%}
+  {%- if channel.avatar_file -%}
+    <img class="avatar {{ class }}" src="/avatars/{{ channel.id }}.jpg" alt="" width="36" height="36" loading="lazy">
+  {%- else -%}
+    <span class="avatar avatar--blank {{ class }}" aria-hidden="true">{{ channel.name[:1] | upper }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro card(item) %}
+<article class="card" data-video="{{ item.video.id }}">
+  <a class="card__picture" href="{{ item.video.url }}" target="_blank" rel="noopener noreferrer"
+     aria-label="{{ item.video.title }}, {{ item.channel.name }}{% if item.priority != Priority.NORMAL %}, {{ item.priority.label }} priority{% endif %}, {{ item.age }}. Opens YouTube">
+    <img src="{{ item.video.thumbnail_url }}" alt="" width="320" height="180" loading="lazy" decoding="async">
+  </a>
+  {% if item.priority != Priority.NORMAL %}
+  <span class="card__tag card__tag--{{ item.priority.name | lower | replace('_', '-') }}" aria-hidden="true">{{ item.priority.label }}</span>
+  {% endif %}
+  <form class="card__seen" method="post" action="/seen/{{ item.video.id }}"
+        hx-post="/seen/{{ item.video.id }}" hx-target="closest .card" hx-swap="delete">
+    <button type="submit" aria-label="Mark as seen: {{ item.video.title }}">Seen</button>
+  </form>
+  <div class="card__words" aria-hidden="true">
+    <h3 class="card__title">{{ item.video.title }}</h3>
+    <p class="card__by">{{ avatar(item.channel) }}<span>{{ item.channel.name }}, {{ item.age }}{% if item.kind_label %}, {{ item.kind_label }}{% endif %}</span></p>
+  </div>
+</article>
+{% endmacro %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Settings - uppYT{% endblock %}
+{% block main %}
+<div class="page stack reading">
+  <h1>Settings</h1>
+  {% if problem %}<p class="problem" role="alert">{{ problem }}</p>{% endif %}
+  {% if saved %}<p role="status">Settings saved.</p>{% endif %}
+  {% if message %}<p role="status">{{ message }}</p>{% endif %}
+  <form class="stack" method="post" action="/settings">
+    <div class="fields">
+      <label class="label" for="window_days">Default window</label>
+      <div class="fields-value"><input class="input input--number" id="window_days" name="window_days" type="text" inputmode="numeric" value="{{ settings.window_days }}"><p class="hint">Days back the board looks.</p></div>
+      <label class="label" for="appearance">Appearance</label>
+      <div class="fields-value"><select class="select" id="appearance" name="appearance">
+        {% for value, label in (("system", "Follow this device"), ("dark", "Dark"), ("light", "Light")) %}<option value="{{ value }}" {% if settings.appearance == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select></div>
+      <label class="label" for="page_size">Cards per page</label>
+      <div class="fields-value"><input class="input input--number" id="page_size" name="page_size" type="text" inputmode="numeric" value="{{ settings.page_size }}"></div>
+    </div>
+    <div class="section stack">
+      <h2>Ranking</h2>
+      <p class="prose">Each priority counts as this many days newer than its real age. Each further unseen video from a channel then counts as the repeat penalty older, so one busy channel can't fill the top.</p>
+      <div class="fields">
+        {% for name, label in (("must_see", "Must-see"), ("high", "High"), ("normal", "Normal"), ("low", "Low")) %}
+        <label class="label" for="hs-{{ name }}">{{ label }}</label>
+        <div class="fields-value"><input class="input input--number" id="hs-{{ name }}" name="head_starts.{{ name }}" type="text" inputmode="decimal" value="{{ '%g' | format(settings.head_starts | attr(name)) }}"></div>
+        {% endfor %}
+        <label class="label" for="repeat_penalty_days">Repeat penalty</label>
+        <div class="fields-value"><input class="input input--number" id="repeat_penalty_days" name="repeat_penalty_days" type="text" inputmode="decimal" value="{{ '%g' | format(settings.repeat_penalty_days) }}"><p class="hint">0 turns it off.</p></div>
+      </div>
+    </div>
+    <div><button class="button" type="submit">Save settings</button></div>
+  </form>
+  <div class="section" id="transfer">
+    <h2>Import and export</h2>
+    <p class="prose">OPML is the format RSS readers use to exchange lists of feeds.</p>
+    <form class="stack" method="post" action="/import" enctype="multipart/form-data">
+      <div class="stack"><label for="file">OPML file</label><input id="file" name="file" type="file" accept=".opml,.xml,text/xml,text/x-opml" required></div>
+      <div class="cluster"><button class="button" type="submit">Import channels</button><a href="/export.opml" download>Export your channels</a></div>
+    </form>
+  </div>
+  <div class="section">
+    <h2>History</h2>
+    <p class="prose">Last checked {{ ago(status.last_refresh) }}. {{ status.channels }} channel{{ "s" if status.channels != 1 }} across every profile, {{ status.active_feeds }} feed{{ "s" if status.active_feeds != 1 }} working{% if status.failing_feeds %}, {{ status.failing_feeds }} failing{% endif %}{% if status.possible_gaps %}, {{ status.possible_gaps }} possible gap{{ "s" if status.possible_gaps != 1 }}{% endif %}.</p>
+    <p class="prose">History can't be downloaded again, because YouTube's feeds list only the newest 15 videos. A backup copies history and every profile to a dated folder.</p>
+    <div class="cluster">
+      <form method="post" action="/backup"><button class="button" type="submit">Back up now</button></form>
+      <form method="post" action="/refresh"><button class="link-button" type="submit">Check for new videos</button></form>
+    </div>
+  </div>
+</div>
+{% endblock %}

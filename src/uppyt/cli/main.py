@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import functools
+import os
 import sys
 import webbrowser
 from pathlib import Path
@@ -78,12 +79,7 @@ def _parse_feeds(text: str | None) -> list[FeedKind] | None:
 
 
 def _parse_priority(text: str | None) -> Priority | None:
-    if text is None:
-        return None
-    try:
-        return Priority.parse(text)
-    except ValueError as error:
-        raise UserError(str(error)) from error
+    return None if text is None else Priority.parse(text)
 
 
 def _parse_tags(text: str | None) -> list[str] | None:
@@ -142,6 +138,14 @@ def _run_terminal_app(session: Session) -> None:
     UppytApp(session.runtime, store).run()
 
 
+def _allowed_hosts(host: str) -> frozenset[str] | None:
+    """Which Host headers to answer, so a web page can't reach a local uppYT by pointing a domain name at it."""
+    extra = {h.strip() for h in os.environ.get("UPPYT_ALLOWED_HOSTS", "").split(",") if h.strip()}
+    if host in ("0.0.0.0", "::") and not extra:
+        return None  # listening everywhere: the person running it knows their own addresses
+    return frozenset({"localhost", "127.0.0.1", "[::1]", host, *extra})
+
+
 def _run_web_app(session: Session, host: str, port: int, open_browser: bool) -> None:
     import threading
 
@@ -155,7 +159,9 @@ def _run_web_app(session: Session, host: str, port: int, open_browser: bool) -> 
         typer.echo("Warning: anyone who can reach this address can see and change every profile.", err=True)
     if open_browser:
         threading.Timer(0.8, webbrowser.open, args=(url,)).start()
-    uvicorn.run(create_app(session.runtime), host=host, port=port, log_level="warning")
+    uvicorn.run(
+        create_app(session.runtime, allowed_hosts=_allowed_hosts(host)), host=host, port=port, log_level="warning"
+    )
 
 
 @implements("cli", "board.view")

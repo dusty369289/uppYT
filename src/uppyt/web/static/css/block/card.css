@@ -1,0 +1,34 @@
+/* A video on the board. The picture fills the card and the words sit on it, until hovering clears them away. */
+.card { position: relative; aspect-ratio: 16 / 9; overflow: hidden; min-width: 0; background: var(--surface); }
+.card__picture { position: absolute; inset: 0; display: block; }
+.card__picture img { width: 100%; height: 100%; object-fit: cover; }
+.card__words {
+  position: absolute; inset: auto 0 0; padding: 2.5rem var(--s-3) .625rem; color: var(--picture-ink); pointer-events: none;
+  background: linear-gradient(to top, var(--scrim-strong), var(--scrim-mid) 55%, var(--scrim-none));
+}
+.card__title { font-size: var(--t-base); font-weight: 500; line-height: 1.25; overflow-wrap: anywhere; }
+.card__by { display: flex; align-items: center; gap: .375rem; margin-block-start: .125rem; color: var(--picture-muted); font-size: var(--t-sm); }
+.card__by span { min-width: 0; overflow-wrap: anywhere; }
+.card__tag { position: absolute; top: 0; left: 0; padding: .1875rem .4375rem; background: var(--picture-tag); color: var(--picture-ink); font-size: .75rem; font-weight: 600; pointer-events: none; }
+.card__tag--must-see { background: var(--picture-tag-strong); color: var(--on-picture-tag-strong); }
+.card__tag--low { color: var(--picture-muted); font-weight: 400; }
+.card__seen { position: absolute; top: 0; right: 0; }
+.card__seen button { min-height: 1.875rem; padding: 0 .5625rem; border: 0; background: var(--picture-tag); color: var(--picture-ink); font-size: .75rem; cursor: pointer; }
+.card__seen button:hover, .card__seen button:focus-visible { background: var(--picture-tag-strong); color: var(--on-picture-tag-strong); }
+@media (pointer: coarse) { .card__seen button { min-height: 2.75rem; padding-inline: .875rem; } }
+
+.avatar { flex: none; width: 1.125rem; height: 1.125rem; border-radius: 50%; object-fit: cover; }
+.avatar--blank { display: grid; place-items: center; background: var(--picture-tag-strong); color: var(--on-picture-tag-strong); font-size: .625rem; font-weight: 600; }
+.avatar--large { width: 4rem; height: 4rem; }
+.avatar--large.avatar--blank { font-size: var(--t-lg); background: var(--surface); color: var(--ink); }
+.avatar--row { width: 2rem; height: 2rem; }
+.avatar--row.avatar--blank { font-size: var(--t-base); background: var(--surface); color: var(--ink); }
+
+/* Clear the words on hover, leaving only the thumbnail. The short delay stops cards flickering as the mouse crosses the
+   grid. The Seen button returns when the pointer reaches its corner. Touch screens can't hover, so nothing fades there. */
+.card__words, .card__tag, .card__seen { transition: opacity .18s ease; }
+@media (hover: hover) {
+  .card:hover .card__words, .card:hover .card__tag, .card:hover .card__seen { opacity: 0; transition-delay: .12s; }
+  .card .card__seen:hover, .card .card__seen:focus-within { opacity: 1; transition-delay: 0s; }
+}
+@media (prefers-reduced-motion: reduce) { .card__words, .card__tag, .card__seen { transition: none; } }

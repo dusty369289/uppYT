@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+{% block title %}Channels - uppYT{% endblock %}
+{% block main %}
+<div class="page stack">
+  <div class="cluster">
+    <h1>Channels</h1>
+    <a class="button push" href="/channels/add">Add a channel</a>
+  </div>
+  {% if not summaries %}
+  <p class="prose">No channels yet. Add one to fill your board.</p>
+  {% else %}
+  <ul class="rows">
+    {% for item in summaries %}
+    <li class="row">
+      {{ avatar(item.channel, "avatar--row") }}
+      <div class="row__main">
+        <a class="row__title" href="/channels/{{ item.channel.id }}">{{ item.channel.name }}</a>
+        <p class="row__sub">
+          {{ item.subscription.priority.label }}{% if item.subscription.tags %}, {{ item.subscription.tags | join(", ") }}{% endif %}
+          {% if item.problem %}<span class="problem"> {{ item.problem }}</span>{% endif %}
+        </p>
+      </div>
+      <span class="row__side">{{ item.unseen }} unseen</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endblock %}

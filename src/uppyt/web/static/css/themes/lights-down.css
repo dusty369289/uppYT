@@ -1,0 +1,53 @@
+/* Lights down: black, white and grey, so all the colour comes from the thumbnails. Dark first.
+   A theme only ever sets tokens. Blocks use them. Contrast is enforced by tests/test_web_design.py. */
+:root {
+  --page: #0e0f11;
+  --surface: #17181b;
+  --ink: #ededea;
+  --muted: #9b9ca0;
+  --line: #2b2c30;
+  --control: #17181b;
+  --control-line: #6e6f75;
+  --primary: #ededea;
+  --on-primary: #0e0f11;
+  --problem: #f2a29a;
+  --picture-ink: #f2f2ef;
+  --picture-muted: #cdcdc9;
+  --picture-tag: rgb(0 0 0 / 80%);
+  --picture-tag-strong: #f2f2ef;
+  --on-picture-tag-strong: #0e0f11;
+  --scrim-strong: rgb(0 0 0 / 92%);
+  --scrim-mid: rgb(0 0 0 / 78%);
+  --scrim-none: rgb(0 0 0 / 0%);
+  color-scheme: dark;
+}
+
+:root[data-appearance="light"] {
+  --page: #f1f1ee;
+  --surface: #fff;
+  --ink: #141517;
+  --muted: #5a5b60;
+  --line: #cfcfcb;
+  --control: #fff;
+  --control-line: #77787d;
+  --primary: #141517;
+  --on-primary: #f1f1ee;
+  --problem: #a3261a;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-appearance="system"] {
+    --page: #f1f1ee;
+    --surface: #fff;
+    --ink: #141517;
+    --muted: #5a5b60;
+    --line: #cfcfcb;
+    --control: #fff;
+    --control-line: #77787d;
+    --primary: #141517;
+    --on-primary: #f1f1ee;
+    --problem: #a3261a;
+    color-scheme: light;
+  }
+}

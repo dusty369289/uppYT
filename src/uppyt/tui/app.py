@@ -609,7 +609,9 @@ class UppytApp(App):
         self.reload_board()
         self.query_one("#board", DataTable).focus()
         if self.background_refresh and self._refresh_loop is None:
-            self._refresh_loop = RefreshLoop(self.services.refresh, on_change=lambda: self.call_from_thread(self.reload_board))
+            self._refresh_loop = RefreshLoop(
+                self.services.refresh, on_change=lambda: self.call_from_thread(self.reload_board)
+            )
             self._refresh_loop.start()
 
     def on_unmount(self) -> None:

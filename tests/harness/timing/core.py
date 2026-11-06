@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, field
 WINDOW = 20  # runs in the rolling average
 MIN_RUNS = 5  # runs before a test has a baseline
 FLOOR = 0.1  # seconds. Below this it's scheduling noise: a 2 ms test taking 4 ms means nothing
+RELATIVE_FLOOR = 0.25  # and a 1 s test taking 1.1 s means nothing either
 NOISE_SPREAD = 4.0  # how many of a test's own typical deviations count as normal
 CONFIRM = 2  # consecutive stray runs before a test enters the queue. One alone is only a blip
 RECOVER = 3  # consecutive normal runs before an open entry closes itself
@@ -65,7 +66,7 @@ def tolerance(runs: list[float], baseline: float) -> float:
     Pass only runs that were within tolerance. Learning from slow runs would widen the band until a slowdown passed.
     """
     typical_deviation = statistics.median(abs(r - baseline) for r in runs) if runs else 0.0
-    return max(FLOOR, NOISE_SPREAD * typical_deviation)
+    return max(FLOOR, RELATIVE_FLOOR * baseline, NOISE_SPREAD * typical_deviation)
 
 
 def load_factor(took: dict[str, float], records: dict[str, History]) -> float:

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_macros.html" import card %}
+{% block title %}Board - uppYT{% endblock %}
+{% block main %}
+{% if not view.channel_count %}
+<div class="page stack">
+  <h1>Add your first channel</h1>
+  <p class="prose">Paste a channel link and uppYT finds its feeds. Your board fills in from there.</p>
+  <form class="stack" method="post" action="/channels/lookup">
+    <div class="stack">
+      <label for="link">Channel link</label>
+      <input class="input" id="link" name="link" type="text" inputmode="url" placeholder="https://www.youtube.com/@name" autocomplete="off" required>
+    </div>
+    <div class="cluster">
+      <button class="button" type="submit">Find channel</button>
+      <a href="/settings#transfer">Import an OPML file</a>
+    </div>
+  </form>
+</div>
+{% else %}
+<div id="board">
+  <form class="tools" method="get" action="/" hx-get="/" hx-trigger="change" hx-target="#board" hx-select="#board" hx-swap="outerHTML" hx-push-url="true" aria-label="Filter the board">
+    <input type="hidden" name="filtered" value="1">
+    <select class="select select--small" name="window" aria-label="How far back">
+      {% for days, label in window_options %}<option value="{{ days }}" {% if days == view.window_days %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <fieldset class="tools__kinds">
+      <legend class="visually-hidden">What to show</legend>
+      {% for spec in toggles %}
+      <label><input type="checkbox" name="kind" value="{{ spec.kind.value }}" {% if spec.kind in view.kinds %}checked{% endif %}>{{ spec.label }}</label>
+      {% endfor %}
+    </fieldset>
+    {% if view.tags %}
+    <select class="select select--small" name="tag" aria-label="Tag">
+      <option value="">All tags</option>
+      {% for tag in view.tags %}<option value="{{ tag }}" {% if tag == view.tag %}selected{% endif %}>{{ tag }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <button class="tools__check" type="submit" data-hide-with-js>Apply</button>
+    <span class="tools__count">{{ view.total }} unseen</span>
+  </form>
+  {% if view.notes %}
+  <div class="note-list stack" data-note>
+    {% for note in view.notes %}<p>{{ note }}</p>{% endfor %}
+  </div>
+  {% endif %}
+  {% if view.cards %}
+  <div class="video-grid" id="cards">
+    {% for item in view.cards %}{{ card(item) }}{% endfor %}
+    {% include "_more.html" %}
+  </div>
+  {% else %}
+  <div class="page stack">
+    <h1>Nothing unseen here</h1>
+    <p class="prose">Nothing unseen from your {{ view.channel_count }} channel{{ "s" if view.channel_count != 1 }} matches these filters. A longer window or more kinds of video might show more.</p>
+    <p><a href="/seen">See what you've marked as seen</a></p>
+  </div>
+  {% endif %}
+  <form class="more" method="post" action="/refresh" hx-post="/refresh" hx-swap="none">
+    <span class="footnote">Last checked {{ ago(view.last_refresh) }}. <button class="tools__check" type="submit">Check now</button></span>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

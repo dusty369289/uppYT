@@ -7,6 +7,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from tests.support import NOW
+from uppyt.domain.errors import UserError
 from uppyt.domain.feeds import CATALOGUE, DEFAULT_ON, TOGGLES, FeedKind, channel_id_from_playlist, classify, feed_url
 from uppyt.domain.models import Priority, Video, normalise_tags
 from uppyt.domain.ranking import Candidate, HeadStartRanker, describe_age, in_window
@@ -207,7 +208,7 @@ def test_priorities_parse_however_they_are_written(text):
 
 
 def test_a_bad_priority_says_what_would_work():
-    with pytest.raises(ValueError, match="Must-see"):
+    with pytest.raises(UserError, match="Must-see"):
         Priority.parse("urgent")
 
 

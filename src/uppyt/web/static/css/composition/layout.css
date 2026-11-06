@@ -1,0 +1,15 @@
+/* Where things sit. Blocks say what things look like. Named after Every Layout's primitives. */
+.stack { display: flex; flex-direction: column; gap: var(--stack-gap, var(--s-4)); }
+.cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cluster-gap, var(--s-3)); }
+.push { margin-inline-start: auto; }
+.page { padding: var(--s-5) var(--gutter) var(--s-7); }
+.reading { max-width: var(--reading); }
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  gap: 6px;
+  padding-inline: 6px;
+}
+@media (max-width: 640px) { .video-grid { padding-inline: 0; gap: 4px; } }
+.fields { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: var(--s-4) var(--s-3); align-items: baseline; }
+@media (max-width: 640px) { .fields { grid-template-columns: minmax(0, 1fr); gap: var(--s-1); } .fields > dd, .fields > .fields-value { margin-block-end: var(--s-3); } }

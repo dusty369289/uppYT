@@ -160,7 +160,7 @@ def _subscription(channel_id: str, row) -> Subscription:
     """A hand-edited row may be missing things or wrong. Keep what's readable rather than losing the channel."""
     try:
         priority = Priority.parse(str(row.get("priority", "normal")))
-    except ValueError:
+    except UserError:
         priority = Priority.NORMAL
     feeds = [FeedKind(f) for f in row.get("feeds", [k.value for k in TOGGLES[:2]]) if f in {k.value for k in TOGGLES}]
     window = row.get("window_days")
