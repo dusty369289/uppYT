@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.hypothesis/
+.ruff_cache/
+*.egg-info/
+dist/
+
+# People's own lists and history. uppYT ships as a blank slate, and history can't be downloaded again.
+/config/
+/data/
+
+# Machine-specific test output
+/.test-review/
+/.ui-baselines/
+/.ui-report/
+CLAUDE.local.md
