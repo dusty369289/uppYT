@@ -44,6 +44,7 @@ class ProfileStore:
         self.folder = folder
         self.name = folder.name
         self._lock = threading.RLock()
+        self._parsed: tuple[tuple[int, int, int], dict[str, Subscription]] | None = None
 
     @property
     def _channels_path(self) -> Path:
@@ -71,8 +72,17 @@ class ProfileStore:
 
     def subscriptions(self) -> dict[str, Subscription]:
         with self._lock:
-            table = self._channels_document().get("channels", {})
-            return {cid: _subscription(cid, row) for cid, row in table.items() if CHANNEL_ID.match(cid)}
+            # Parsing is by far the slowest part of a request with a long list, so it's only redone if the file changed.
+            try:
+                info = self._channels_path.stat()
+                stamp = (info.st_mtime_ns, info.st_size, info.st_ino)
+            except FileNotFoundError:
+                return {}
+            if self._parsed is None or self._parsed[0] != stamp:
+                table = self._channels_document().get("channels", {})
+                parsed = {cid: _subscription(cid, row) for cid, row in table.items() if CHANNEL_ID.match(cid)}
+                self._parsed = (stamp, parsed)
+            return dict(self._parsed[1])
 
     def save_subscription(self, subscription: Subscription, *, note: str | None = None) -> None:
         with self._lock:
@@ -178,6 +188,13 @@ class ProfileDirectory:
 
     def __init__(self, root: Path):
         self.root = root
+        self._stores: dict[str, ProfileStore] = {}
+        self._lock = threading.Lock()
+
+    def _store(self, folder: Path) -> ProfileStore:
+        """One store per profile, shared by every request. Its lock is what stops two saves overwriting each other."""
+        with self._lock:
+            return self._stores.setdefault(folder.name, ProfileStore(folder))
 
     def names(self) -> list[str]:
         if not self.root.is_dir():
@@ -190,11 +207,11 @@ class ProfileDirectory:
             raise ProfileError(f"There's already a profile called {name}.")
         folder = self.root / name
         folder.mkdir(parents=True)
-        return ProfileStore(folder)
+        return self._store(folder)
 
     def get(self, name: str) -> ProfileStore:
         name = validate_name(name)
         folder = self.root / name
         if not folder.is_dir():
             raise ProfileError(f"There's no profile called {name}.")
-        return ProfileStore(folder)
+        return self._store(folder)

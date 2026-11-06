@@ -433,6 +433,52 @@ def test_parallel_seen_marks_all_land(profile):
     assert len(profile.seen()) == 40
 
 
+def test_requests_share_one_store_so_parallel_marks_all_land(tmp_path):
+    """Found under load: with a store per request, each with its own lock, only 13 of 200 marks survived."""
+    directory = ProfileDirectory(tmp_path)
+    directory.create("dusty")
+    with ThreadPoolExecutor(16) as pool:
+        list(pool.map(lambda i: directory.get("dusty").mark_seen(f"v{i}", NOW), range(200)))
+    assert len(directory.get("dusty").seen()) == 200
+
+
+def test_requests_share_one_store_so_parallel_saves_all_land(tmp_path):
+    directory = ProfileDirectory(tmp_path)
+    directory.create("dusty")
+    ids = [f"UC{i:022d}" for i in range(40)]
+    with ThreadPoolExecutor(16) as pool:
+        list(pool.map(lambda cid: directory.get("dusty").save_subscription(Subscription(cid)), ids))
+    assert sorted(directory.get("dusty").subscriptions()) == ids
+
+
+def test_the_channel_list_is_only_parsed_again_when_it_changes(profile, monkeypatch):
+    profile.save_subscription(Subscription(MKBHD))
+    first = profile.subscriptions()
+    monkeypatch.setattr(profile, "_channels_document", lambda: pytest.fail("parsed again with nothing changed"))
+    assert profile.subscriptions() == first
+
+
+def test_a_hand_edit_is_noticed_straight_away(profile):
+    profile.save_subscription(Subscription(MKBHD, Priority.LOW))
+    assert profile.subscriptions()[MKBHD].priority is Priority.LOW
+    path = profile.folder / "channels.toml"
+    path.write_text(path.read_text().replace('"low"', '"high"'))
+    assert profile.subscriptions()[MKBHD].priority is Priority.HIGH
+
+
+def test_changing_the_returned_list_cant_change_the_store(profile):
+    profile.save_subscription(Subscription(MKBHD))
+    profile.subscriptions().clear()
+    assert MKBHD in profile.subscriptions()
+
+
+def test_a_deleted_channel_file_is_an_empty_list(profile):
+    profile.save_subscription(Subscription(MKBHD))
+    profile.subscriptions()
+    (profile.folder / "channels.toml").unlink()
+    assert profile.subscriptions() == {}
+
+
 def test_profiles_keep_to_their_own_folders(tmp_path):
     directory = ProfileDirectory(tmp_path)
     a, b = directory.create("a"), directory.create("b")
