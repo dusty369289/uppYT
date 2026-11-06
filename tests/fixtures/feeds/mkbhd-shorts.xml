@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
+ <link rel="self" href="http://www.youtube.com/feeds/videos.xml?playlist_id=UUSHBJycsmduvYEL83R_U4JriQ"/>
+ <id>yt:playlist:UUSHBJycsmduvYEL83R_U4JriQ</id>
+ <yt:playlistId>UUSHBJycsmduvYEL83R_U4JriQ</yt:playlistId>
+ <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+ <title>Short videos</title>
+ <author>
+  <name>Marques Brownlee</name>
+  <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+ </author>
+ <published>2022-03-11T14:00:27+00:00</published>
+ <entry>
+  <id>yt:video:ai1gIWacf0I</id>
+  <yt:videoId>ai1gIWacf0I</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>This can SEE Sound!</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/ai1gIWacf0I"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-10-27T20:14:55+00:00</published>
+  <updated>2026-11-06T17:46:32+00:00</updated>
+  <media:group>
+   <media:title>This can SEE Sound!</media:title>
+   <media:content url="https://www.youtube.com/v/ai1gIWacf0I?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i2.ytimg.com/vi/ai1gIWacf0I/hqdefault.jpg" width="480" height="360"/>
+   <media:description>This is an acoustic imaging camera</media:description>
+   <media:community>
+    <media:starRating count="74267" average="5.00" min="1" max="5"/>
+    <media:statistics views="2626911"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:_4ELeWAgMwo</id>
+  <yt:videoId>_4ELeWAgMwo</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>ASMR iPhone Duo Unboxing</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/_4ELeWAgMwo"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-10-21T14:00:33+00:00</published>
+  <updated>2026-11-06T17:35:34+00:00</updated>
+  <media:group>
+   <media:title>ASMR iPhone Duo Unboxing</media:title>
+   <media:content url="https://www.youtube.com/v/_4ELeWAgMwo?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i4.ytimg.com/vi/_4ELeWAgMwo/hqdefault.jpg" width="480" height="360"/>
+   <media:description>iPhone duo only comes with 2 things in the box</media:description>
+   <media:community>
+    <media:starRating count="71153" average="5.00" min="1" max="5"/>
+    <media:statistics views="2286193"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:R6yNUnRXZ64</id>
+  <yt:videoId>R6yNUnRXZ64</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>iPhone Duo is here</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/R6yNUnRXZ64"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-09-10T07:02:22+00:00</published>
+  <updated>2026-11-06T17:26:34+00:00</updated>
+  <media:group>
+   <media:title>iPhone Duo is here</media:title>
+   <media:content url="https://www.youtube.com/v/R6yNUnRXZ64?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i3.ytimg.com/vi/R6yNUnRXZ64/hqdefault.jpg" width="480" height="360"/>
+   <media:description>What to know about iPhone Duo</media:description>
+   <media:community>
+    <media:starRating count="222363" average="5.00" min="1" max="5"/>
+    <media:statistics views="8847704"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:uJdjKOBikTE</id>
+  <yt:videoId>uJdjKOBikTE</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>This iPhone Duo Animation 👀</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/uJdjKOBikTE"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-09-09T22:14:37+00:00</published>
+  <updated>2026-11-06T17:35:28+00:00</updated>
+  <media:group>
+   <media:title>This iPhone Duo Animation 👀</media:title>
+   <media:content url="https://www.youtube.com/v/uJdjKOBikTE?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i2.ytimg.com/vi/uJdjKOBikTE/hqdefault.jpg" width="480" height="360"/>
+   <media:description></media:description>
+   <media:community>
+    <media:starRating count="152589" average="5.00" min="1" max="5"/>
+    <media:statistics views="7442248"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:v-_d2e7x4KA</id>
+  <yt:videoId>v-_d2e7x4KA</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>The Wildest Camera Robot</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/v-_d2e7x4KA"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-08-25T23:23:55+00:00</published>
+  <updated>2026-11-06T17:27:04+00:00</updated>
+  <media:group>
+   <media:title>The Wildest Camera Robot</media:title>
+   <media:content url="https://www.youtube.com/v/v-_d2e7x4KA?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i3.ytimg.com/vi/v-_d2e7x4KA/hqdefault.jpg" width="480" height="360"/>
+   <media:description>It can do flips, etc</media:description>
+   <media:community>
+    <media:starRating count="300305" average="5.00" min="1" max="5"/>
+    <media:statistics views="8807560"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:kUnR9dO4EnA</id>
+  <yt:videoId>kUnR9dO4EnA</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>This ZOOM is Insane!</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/kUnR9dO4EnA"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-07-20T20:39:08+00:00</published>
+  <updated>2026-11-06T17:27:19+00:00</updated>
+  <media:group>
+   <media:title>This ZOOM is Insane!</media:title>
+   <media:content url="https://www.youtube.com/v/kUnR9dO4EnA?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i4.ytimg.com/vi/kUnR9dO4EnA/hqdefault.jpg" width="480" height="360"/>
+   <media:description>Keep zooming. Keep zooming.</media:description>
+   <media:community>
+    <media:starRating count="234278" average="5.00" min="1" max="5"/>
+    <media:statistics views="6691480"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:oYAnEH0JoqI</id>
+  <yt:videoId>oYAnEH0JoqI</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>Apple's Big Price Hike</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/oYAnEH0JoqI"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-06-25T15:32:20+00:00</published>
+  <updated>2026-11-06T17:29:36+00:00</updated>
+  <media:group>
+   <media:title>Apple's Big Price Hike</media:title>
+   <media:content url="https://www.youtube.com/v/oYAnEH0JoqI?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i4.ytimg.com/vi/oYAnEH0JoqI/hqdefault.jpg" width="480" height="360"/>
+   <media:description>New prices across the board for everything.</media:description>
+   <media:community>
+    <media:starRating count="62335" average="5.00" min="1" max="5"/>
+    <media:statistics views="2081400"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:n3V3LZh_r40</id>
+  <yt:videoId>n3V3LZh_r40</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>Apple Products That DON'T Exist</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/n3V3LZh_r40"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-06-04T19:41:28+00:00</published>
+  <updated>2026-11-06T17:26:34+00:00</updated>
+  <media:group>
+   <media:title>Apple Products That DON'T Exist</media:title>
+   <media:content url="https://www.youtube.com/v/n3V3LZh_r40?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i3.ytimg.com/vi/n3V3LZh_r40/hqdefault.jpg" width="480" height="360"/>
+   <media:description>yet</media:description>
+   <media:community>
+    <media:starRating count="260808" average="5.00" min="1" max="5"/>
+    <media:statistics views="7621967"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:ImRy_PiXstI</id>
+  <yt:videoId>ImRy_PiXstI</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>Lewis Hamilton Explains F1 Tire Strategy</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/ImRy_PiXstI"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-05-29T16:16:48+00:00</published>
+  <updated>2026-11-06T17:28:01+00:00</updated>
+  <media:group>
+   <media:title>Lewis Hamilton Explains F1 Tire Strategy</media:title>
+   <media:content url="https://www.youtube.com/v/ImRy_PiXstI?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i2.ytimg.com/vi/ImRy_PiXstI/hqdefault.jpg" width="480" height="360"/>
+   <media:description>You have $100 to spend in the tires</media:description>
+   <media:community>
+    <media:starRating count="104960" average="5.00" min="1" max="5"/>
+    <media:statistics views="4903044"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:M4xlXvCAc2E</id>
+  <yt:videoId>M4xlXvCAc2E</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>ELITE Camera Work</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/M4xlXvCAc2E"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-05-28T18:21:57+00:00</published>
+  <updated>2026-11-06T17:28:51+00:00</updated>
+  <media:group>
+   <media:title>ELITE Camera Work</media:title>
+   <media:content url="https://www.youtube.com/v/M4xlXvCAc2E?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i2.ytimg.com/vi/M4xlXvCAc2E/hqdefault.jpg" width="480" height="360"/>
+   <media:description>NBA Camera people are incredible</media:description>
+   <media:community>
+    <media:starRating count="29282" average="5.00" min="1" max="5"/>
+    <media:statistics views="1096320"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:OPOS0tre9eQ</id>
+  <yt:videoId>OPOS0tre9eQ</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>Ferrari's Electric Car Looks Like...</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/OPOS0tre9eQ"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-05-25T20:10:36+00:00</published>
+  <updated>2026-11-06T17:26:34+00:00</updated>
+  <media:group>
+   <media:title>Ferrari's Electric Car Looks Like...</media:title>
+   <media:content url="https://www.youtube.com/v/OPOS0tre9eQ?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i4.ytimg.com/vi/OPOS0tre9eQ/hqdefault.jpg" width="480" height="360"/>
+   <media:description>Ferrari Luce</media:description>
+   <media:community>
+    <media:starRating count="100152" average="5.00" min="1" max="5"/>
+    <media:statistics views="3697330"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:VIE2Ri2DQJg</id>
+  <yt:videoId>VIE2Ri2DQJg</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>Why Fitbit Air Could Be Huge</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/VIE2Ri2DQJg"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-05-15T16:25:11+00:00</published>
+  <updated>2026-11-06T17:26:34+00:00</updated>
+  <media:group>
+   <media:title>Why Fitbit Air Could Be Huge</media:title>
+   <media:content url="https://www.youtube.com/v/VIE2Ri2DQJg?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i3.ytimg.com/vi/VIE2Ri2DQJg/hqdefault.jpg" width="480" height="360"/>
+   <media:description>Everyone's talking about the Fitbit Air</media:description>
+   <media:community>
+    <media:starRating count="85888" average="5.00" min="1" max="5"/>
+    <media:statistics views="3454221"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:s3DrGkDvgNw</id>
+  <yt:videoId>s3DrGkDvgNw</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>Every Google Phone Ever. Same Picture!</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/s3DrGkDvgNw"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-04-08T20:43:49+00:00</published>
+  <updated>2026-11-06T17:29:50+00:00</updated>
+  <media:group>
+   <media:title>Every Google Phone Ever. Same Picture!</media:title>
+   <media:content url="https://www.youtube.com/v/s3DrGkDvgNw?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i4.ytimg.com/vi/s3DrGkDvgNw/hqdefault.jpg" width="480" height="360"/>
+   <media:description>All Pixel and Nexus phones</media:description>
+   <media:community>
+    <media:starRating count="60691" average="5.00" min="1" max="5"/>
+    <media:statistics views="1694822"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:as_NEJAP8ew</id>
+  <yt:videoId>as_NEJAP8ew</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>Every Samsung Phone. SAME Photo!</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/as_NEJAP8ew"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-04-07T21:06:16+00:00</published>
+  <updated>2026-11-06T17:30:06+00:00</updated>
+  <media:group>
+   <media:title>Every Samsung Phone. SAME Photo!</media:title>
+   <media:content url="https://www.youtube.com/v/as_NEJAP8ew?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i2.ytimg.com/vi/as_NEJAP8ew/hqdefault.jpg" width="480" height="360"/>
+   <media:description>Holy HDR</media:description>
+   <media:community>
+    <media:starRating count="101065" average="5.00" min="1" max="5"/>
+    <media:statistics views="2791164"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:pvjivZ6C6CA</id>
+  <yt:videoId>pvjivZ6C6CA</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>Every iPhone Camera vs LOW Light</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/pvjivZ6C6CA"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2026-03-30T16:42:18+00:00</published>
+  <updated>2026-11-06T17:28:55+00:00</updated>
+  <media:group>
+   <media:title>Every iPhone Camera vs LOW Light</media:title>
+   <media:content url="https://www.youtube.com/v/pvjivZ6C6CA?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i1.ytimg.com/vi/pvjivZ6C6CA/hqdefault.jpg" width="480" height="360"/>
+   <media:description>Anything can handle broad daylight</media:description>
+   <media:community>
+    <media:starRating count="132958" average="5.00" min="1" max="5"/>
+    <media:statistics views="4268649"/>
+   </media:community>
+  </media:group>
+ </entry>
+</feed>

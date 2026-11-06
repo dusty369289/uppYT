@@ -16,7 +16,7 @@ STORE = Path(__file__).parents[3] / ".test-review" / "timings.json"
 def load(path: Path = STORE) -> dict[str, core.History]:
     try:
         raw = json.loads(path.read_text())
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return {}  # no history, or a damaged file: start learning again
     return {test: core.History.from_dict(data) for test, data in raw.items()}
 
@@ -76,8 +76,10 @@ def _print_queue(records: dict[str, core.History]) -> None:
     print(f"{len(open_items)} tests open for timing review")
     for test, record in sorted(open_items.items()):
         average = core.rolling_average(record.runs) or 0
-        print(f"  {test}: baseline {record.baseline:.2f}s, rolling average {average:.2f}s,"
-              f" since {record.review.opened_commit}")
+        print(
+            f"  {test}: baseline {record.baseline:.2f}s, rolling average {average:.2f}s,"
+            f" since {record.review.opened_commit}"
+        )
 
 
 class TimingPlugin:
@@ -129,8 +131,11 @@ class TimingPlugin:
             for test, record in sorted(open_items.items()):
                 label = "NEW " if test in new else "OPEN"
                 average = core.rolling_average(record.runs) or 0
-                tr.write_line(f"{label} {test}: rolling average {average:.2f}s, baseline {record.baseline:.2f}s,"
-                              f" since {record.review.opened_commit}", yellow=True)
+                tr.write_line(
+                    f"{label} {test}: rolling average {average:.2f}s, baseline {record.baseline:.2f}s,"
+                    f" since {record.review.opened_commit}",
+                    yellow=True,
+                )
             tr.write_line('Explain it, then: pytest --timing-accept <test> --reason "..."', yellow=True)
         limit = _timeout_limit(config)
         close = sorted(t for t, r in records.items() if core.near_timeout(r, limit))

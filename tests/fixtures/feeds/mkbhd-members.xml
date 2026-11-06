@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
+ <link rel="self" href="http://www.youtube.com/feeds/videos.xml?playlist_id=UUMOBJycsmduvYEL83R_U4JriQ"/>
+ <id>yt:playlist:UUMOBJycsmduvYEL83R_U4JriQ</id>
+ <yt:playlistId>UUMOBJycsmduvYEL83R_U4JriQ</yt:playlistId>
+ <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+ <title>Members-only videos</title>
+ <author>
+  <name>Marques Brownlee</name>
+  <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+ </author>
+ <published>2022-02-02T18:02:54+00:00</published>
+ <entry>
+  <id>yt:video:2_4ZA5QffCg</id>
+  <yt:videoId>2_4ZA5QffCg</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>May the 4th Be With You!</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=2_4ZA5QffCg"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2022-05-04T18:31:02+00:00</published>
+  <updated>2026-11-06T17:26:34+00:00</updated>
+  <media:group>
+   <media:title>May the 4th Be With You!</media:title>
+   <media:content url="https://www.youtube.com/v/2_4ZA5QffCg?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i3.ytimg.com/vi/2_4ZA5QffCg/hqdefault.jpg" width="480" height="360"/>
+   <media:description>Members Only Livestream for May</media:description>
+   <media:community>
+    <media:starRating count="92" average="5.00" min="1" max="5"/>
+    <media:statistics views="0"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:Q_xvUv_SMg4</id>
+  <yt:videoId>Q_xvUv_SMg4</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>May the 4th be With You</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=Q_xvUv_SMg4"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2022-05-04T18:29:31+00:00</published>
+  <updated>2026-11-06T17:27:36+00:00</updated>
+  <media:group>
+   <media:title>May the 4th be With You</media:title>
+   <media:content url="https://www.youtube.com/v/Q_xvUv_SMg4?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i2.ytimg.com/vi/Q_xvUv_SMg4/hqdefault.jpg" width="480" height="360"/>
+   <media:description>Members Only May livestream</media:description>
+   <media:community>
+    <media:starRating count="12" average="5.00" min="1" max="5"/>
+    <media:statistics views="0"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:-TQWD0S5uLA</id>
+  <yt:videoId>-TQWD0S5uLA</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>Members Only April Fitness Challenge!</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=-TQWD0S5uLA"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2022-03-31T22:09:21+00:00</published>
+  <updated>2026-11-06T17:28:00+00:00</updated>
+  <media:group>
+   <media:title>Members Only April Fitness Challenge!</media:title>
+   <media:content url="https://www.youtube.com/v/-TQWD0S5uLA?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i2.ytimg.com/vi/-TQWD0S5uLA/hqdefault.jpg" width="480" height="360"/>
+   <media:description>First, download Challenges:
+https://challengesapp.app.link/download
+Once you have the app, enter invite code: 'pbxa' or tap on the link below to join:
+https://sync.challenges.app/invite?eligibilitycode=pbxa</media:description>
+   <media:community>
+    <media:starRating count="42" average="5.00" min="1" max="5"/>
+    <media:statistics views="0"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:bu6l47W1N9Q</id>
+  <yt:videoId>bu6l47W1N9Q</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>Sup</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=bu6l47W1N9Q"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2022-02-28T22:33:38+00:00</published>
+  <updated>2026-11-06T17:31:30+00:00</updated>
+  <media:group>
+   <media:title>Sup</media:title>
+   <media:content url="https://www.youtube.com/v/bu6l47W1N9Q?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i3.ytimg.com/vi/bu6l47W1N9Q/hqdefault.jpg" width="480" height="360"/>
+   <media:description>Happy February!</media:description>
+   <media:community>
+    <media:starRating count="75" average="5.00" min="1" max="5"/>
+    <media:statistics views="0"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:2Hke7Utt_qQ</id>
+  <yt:videoId>2Hke7Utt_qQ</yt:videoId>
+  <yt:channelId>UCBJycsmduvYEL83R_U4JriQ</yt:channelId>
+  <title>Is This Thing On?</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=2Hke7Utt_qQ"/>
+  <author>
+   <name>Marques Brownlee</name>
+   <uri>https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ</uri>
+  </author>
+  <published>2022-02-02T17:24:56+00:00</published>
+  <updated>2026-11-06T17:26:59+00:00</updated>
+  <media:group>
+   <media:title>Is This Thing On?</media:title>
+   <media:content url="https://www.youtube.com/v/2Hke7Utt_qQ?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i3.ytimg.com/vi/2Hke7Utt_qQ/hqdefault.jpg" width="480" height="360"/>
+   <media:description>This is a test member's only live stream.</media:description>
+   <media:community>
+    <media:starRating count="114" average="5.00" min="1" max="5"/>
+    <media:statistics views="0"/>
+   </media:community>
+  </media:group>
+ </entry>
+</feed>

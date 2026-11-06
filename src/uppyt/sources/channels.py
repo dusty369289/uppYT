@@ -1,0 +1,108 @@
+"""Turning whatever someone pastes into a channel. One public page fetch, when adding a channel, and never again."""
+
+from __future__ import annotations
+
+import html
+import re
+from dataclasses import dataclass
+from typing import Protocol
+from urllib.parse import urlsplit
+
+from ..domain.models import CHANNEL_ID
+from .transport import IMAGE_HOSTS, Transport, TransportError, is_allowed
+
+AVATAR_SIZE = 176  # twice the largest it's ever shown
+YOUTUBE_HOSTS = frozenset({"www.youtube.com", "youtube.com", "m.youtube.com"})
+_CANONICAL = re.compile(r'<link rel="canonical" href="https://www\.youtube\.com/channel/(UC[\w-]{22})"')
+_TITLE = re.compile(r'<meta property="og:title" content="([^"]*)"')
+_IMAGE = re.compile(r'<meta property="og:image" content="([^"]*)"')
+_HANDLE = re.compile(r'"vanityChannelUrl":"https?://www\.youtube\.com/(@[^"/]+)"|m\.youtube\.com/(@[^"/?]+)"')
+_HANDLE_TEXT = re.compile(r"^@[\w.·-]{1,60}$")
+
+
+class ChannelInputError(ValueError):
+    """What someone typed can't be a channel. The message says what would work."""
+
+
+class ChannelLookupError(Exception):
+    """A real answer from YouTube that isn't a usable channel, or no answer. The message is written for people."""
+
+
+@dataclass(frozen=True)
+class ResolvedChannel:
+    id: str
+    name: str
+    handle: str | None
+    avatar_url: str | None
+
+
+class ChannelResolver(Protocol):
+    def resolve(self, text: str) -> ResolvedChannel: ...
+
+
+HOW_TO = "Paste a channel link such as https://www.youtube.com/@name, or an @name on its own."
+
+
+def channel_page_url(text: str) -> str:
+    """Where a pasted link, @name or channel ID points. Refuses everything else without touching the network."""
+    text = text.strip()
+    if not text:
+        raise ChannelInputError(HOW_TO)
+    if CHANNEL_ID.match(text):
+        return f"https://www.youtube.com/channel/{text}"
+    if _HANDLE_TEXT.match(text):
+        return f"https://www.youtube.com/{text}"
+    if "://" not in text and text.split("/", 1)[0].lower() in YOUTUBE_HOSTS:
+        text = "https://" + text
+    parts = urlsplit(text)
+    if parts.hostname not in YOUTUBE_HOSTS:
+        raise ChannelInputError(f"That isn't a YouTube link. {HOW_TO}")
+    segments = [s for s in parts.path.split("/") if s]
+    if not segments:
+        raise ChannelInputError(f"That's YouTube's home page. {HOW_TO}")
+    first = segments[0]
+    if first in ("watch", "shorts", "live", "playlist"):
+        raise ChannelInputError(f"That's a link to a video, not a channel. {HOW_TO}")
+    if first.startswith("@"):
+        return f"https://www.youtube.com/{first}"
+    if first in ("channel", "c", "user") and len(segments) >= 2:
+        return f"https://www.youtube.com/{first}/{segments[1]}"
+    raise ChannelInputError(f"That doesn't look like a channel link. {HOW_TO}")
+
+
+def smaller_avatar(url: str) -> str:
+    """Channel pages name a 900 px picture. Google's image links carry their size, so ask for what's needed."""
+    return re.sub(r"=s\d+", f"=s{AVATAR_SIZE}", url, count=1)
+
+
+def parse_channel_page(page: str) -> ResolvedChannel:
+    canonical = _CANONICAL.search(page)
+    if not canonical:
+        raise ChannelLookupError("YouTube's page for that link doesn't name a channel. Check the link and try again.")
+    title = _TITLE.search(page)
+    image = _IMAGE.search(page)
+    handle = _HANDLE.search(page)
+    avatar = html.unescape(image.group(1)) if image else None
+    return ResolvedChannel(
+        id=canonical.group(1),
+        name=html.unescape(title.group(1)) if title else canonical.group(1),
+        handle=(handle.group(1) or handle.group(2)) if handle else None,
+        avatar_url=smaller_avatar(avatar) if avatar and is_allowed(avatar, IMAGE_HOSTS) else None,
+    )
+
+
+class PageResolver:
+    def __init__(self, transport: Transport):
+        self._transport = transport
+
+    def resolve(self, text: str) -> ResolvedChannel:
+        url = channel_page_url(text)
+        try:
+            reply = self._transport.get(url)
+        except TransportError as error:
+            raise ChannelLookupError(str(error)) from error
+        if reply.status == 404:
+            raise ChannelLookupError(f"YouTube has no channel at {url}. Check the spelling.")
+        if reply.status != 200:
+            raise ChannelLookupError(f"YouTube answered {reply.status} for that channel. Try again in a moment.")
+        return parse_channel_page(reply.text)
