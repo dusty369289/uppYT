@@ -71,6 +71,9 @@ def compare(shot: Path, name: str, machine: str, *, accept: bool, diff_to: Path)
     if share <= CHANGED_SHARE:
         return Comparison(Verdict.SAME, baseline, changed_share=share)
     if accept:
+        replaced = BASELINES / machine / "replaced" / f"{name}.png"
+        replaced.parent.mkdir(parents=True, exist_ok=True)
+        replaced.write_bytes(baseline.read_bytes())  # approving can be taken back
         baseline.write_bytes(shot.read_bytes())
         return Comparison(Verdict.ACCEPTED, baseline, changed_share=share)
     return Comparison(Verdict.DIFFERENT, baseline, diff_to, share)

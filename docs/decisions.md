@@ -64,3 +64,23 @@ Last-Modified. Prefixes confirmed: `UU` all, `UULF` videos, `UUSH` shorts, `UULV
   side is unknown. No retry can promise a fetch at that moment. What's promised is eventual: rechecks continue, and the
   channel feed fills in meanwhile. Videos can only be lost if more than 15 are uploaded before anything answers.
 - **The 15-minute rule only applies after a success.** It respects YouTube's cache of good answers.
+
+## 2026-11-06: no cut corners
+
+The owner read three lapses in a report (baselines approved unseen, a failure whose output was thrown away, a timing
+history reset instead of reviewed) and asked that they never happen again. So rules alone weren't enough:
+- Every failure is logged with its traceback, and a test failing then passing on unchanged code is flagged as flaky on
+  every run until explained. The flag is keyed to a fingerprint of the code, so a real fix doesn't count.
+- `--ui-accept` needs a reason, which is logged. Replaced baselines and the previous report are kept.
+- The rules are in `CLAUDE.md`. These apply on any project, so they're in the assistant's own memory too.
+
+## 2026-11-06: failures found while preparing to publish
+
+Neither was re-run away or loosened, and both limits stayed where they were.
+- **A channel page went over its 0.2 s budget.** 96% of the time was parsing `channels.toml` twice with tomlkit on a list of
+  100. It's now parsed only when the file changes, keyed on its modified time, size and inode, so hand edits still show at once.
+- **That exposed a real data-loss bug.** Each request made its own `ProfileStore` with its own lock, and 13 of 200 parallel
+  "Seen" marks survived. There's now one store per profile. Separate processes, such as the web app and a CLI command
+  writing in the same instant, can still race. Accepted for now: the window is very small and the file can't be corrupted.
+- **The recurring pixel flake was native `<select>` text** keeping a layout from before its font arrived, on about 1 load in
+  4 under CPU load. The harness now lays selects out again: 100 identical loads in 100. Disabling LCD text didn't help.

@@ -13,13 +13,26 @@ date and the reason, and change this file if a rule changes. Check `docs/decisio
 ## Rules
 - **Commits:** small, logical, short messages, explicit paths (never `git add -A`). **Never** an AI co-author trailer or
   a "Generated with" line. All work is attributed to the owner.
-- **Publishing:** never create the GitHub repo or push until the owner asks. Account: `dusty369289`.
+- **Publishing:** public at `github.com/dusty369289/uppYT`. Only push when the owner asks, then watch CI through to the end.
 - **Blank slate:** no personal data, channel lists or real profiles in the repo. `config/` and `data/` stay gitignored.
 - **History is irreplaceable.** Feeds hold only the newest 15 entries, so `data/catalogue.db` can't be rebuilt. Never
   delete it. Migrations are explicit, tested against old database files, and back up first.
 - **RSS only.** Routine data comes from RSS. The only other YouTube request is one public channel page fetch when adding
   a channel (ID, name, avatar). No search, no internal APIs, no scraping beyond that without asking.
 - **Be plain about limits.** Don't hide thin history or possible gaps. Say what's known.
+
+## Never cut these corners
+The owner asked for these to hold permanently. Where the harness can enforce one, it does.
+- **Look before approving.** Inspect first, and approve in a later step. Never send an inspection and the action depending
+  on it together, even as parallel calls: a parallel test run once wiped the diff being read, and baselines got approved
+  unseen. `--ui-accept` needs a `--reason` saying what was looked at, and it's logged.
+- **Keep failing output.** Write a run to a file before reading its tail, and read the real error. Don't guess a cause and
+  call it a diagnosis. Failures are kept in `.test-review/failures.log`.
+- **Flaky means investigate.** A test that fails then passes on the same code stays listed on every run until it's explained
+  with `--flaky-explain`. Never re-run until green and move on.
+- **Explain warnings, don't clear them.** Never delete `.test-review/`, reset baselines or loosen a limit to make a warning
+  go away. If a limit is really wrong, say why in `docs/decisions.md`.
+- **If one slips anyway, say so** in the report, plainly, and repair what can be repaired.
 
 ## Architecture
 ```
@@ -68,7 +81,8 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
 - **Timing review:** a test straying from its rolling average enters a sticky queue, shown on every run until it recovers
   or is accepted: `pytest --timing-accept <test> --reason "..."`. Explain it, don't just accept it.
   `pytest --timing-report` shows the queue. Warnings never fail a run.
-- **UI baselines** are local-only (`.ui-baselines/`), keyed to OS, browser and fonts. Approve changes with `--ui-accept`.
+- Run output: `pytest ... > file 2>&1`, then read the file.
+- **UI baselines** are local-only (`.ui-baselines/`), keyed to OS, browser and fonts. Look at the contact sheet, then approve with `--ui-accept --reason "..."`. The previous report stays in `.ui-report-previous/`, and replaced baselines under `replaced/`.
 - After changing how a page looks, read the contact sheet. Rules can't judge how it looks.
 - Before each commit: the full suite once. Check what you changed against the running app, not only tests.
 
@@ -81,4 +95,9 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
 - **Never keep YouTube's cookies.** Keeping one sends UK and EU visitors to its consent page. Without one, the redirect
   comes straight back. The fixtures passed while every real lookup failed, so check real behaviour with a live run:
   `uv run pytest -m live -n 0` and the real app in a scratch `UPPYT_HOME`.
+- **`<select>` text can stick in the wrong shape.** Laid out before its font arrives, it stays subtly wrong for good. Two
+  wrong guesses came first (font timing, then anti-aliasing). The UI harness lays selects out again, and it took measuring
+  under CPU load to find, since an idle machine never showed it. Reproduce flakes under load.
+- **One `ProfileStore` per profile, always.** Its lock is what protects read-modify-write saves. One store per request
+  lost 187 of 200 parallel marks. Two separate processes (web and CLI) can still race, in a very narrow window.
 - Textual's own names bite: `remove`, `_id` and `_loop` on a screen or app all break it silently or strangely.

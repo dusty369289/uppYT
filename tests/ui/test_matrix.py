@@ -50,6 +50,13 @@ WAIT_FOR_IMAGES = """async () => {
   document.querySelectorAll('img[loading=lazy]').forEach(image => { image.loading = 'eager'; });
   await Promise.all(['400', '500', '600'].map(weight => document.fonts.load(`${weight} 15px "IBM Plex Sans"`)));
   await document.fonts.ready;
+  // A native select keeps text it laid out before its font arrived, slightly misshapen for good, on about 1 load in 4
+  // under load. Laying it out again gave 100 identical loads in 100.
+  document.querySelectorAll('select').forEach(select => {
+    select.style.display = 'none';
+    select.getBoundingClientRect();
+    select.style.display = '';
+  });
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   await Promise.all([...document.images].map(image => image.decode().catch(() => null)));
 }"""
@@ -161,7 +168,7 @@ def test_page(page_info, scenario, width, mode, browser, scenes, request):
     assert not problems, "\n".join(problems)
     assert not different, (
         f"Looks different from this machine's baseline ({comparison.changed_share * 100:.1f}% of pixels). "
-        "See .ui-report/index.html. If that's intended: pytest -m ui --ui-accept"
+        'See .ui-report/index.html. Look at it, then if it\'s right: pytest -m ui --ui-accept --reason "..."'
     )
     if comparison.verdict is pixels.Verdict.CREATED:
         pytest.skip("Baseline created. Nothing to compare against yet, so this look is unchecked until the next run.")

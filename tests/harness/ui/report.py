@@ -6,17 +6,22 @@ import html
 import json
 import shutil
 from collections import Counter
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).parents[3]
 REPORT = ROOT / ".ui-report"
+PREVIOUS = ROOT / ".ui-report-previous"
 SHOTS = REPORT / "shots"
 DIFFS = REPORT / "diffs"
 RESULTS = REPORT / "results.jsonl"
 
 
 def begin() -> None:
-    shutil.rmtree(REPORT, ignore_errors=True)
+    """The last run's report is kept beside this one, so starting a run can't destroy the evidence being looked at."""
+    shutil.rmtree(PREVIOUS, ignore_errors=True)
+    if REPORT.exists():
+        REPORT.rename(PREVIOUS)
     SHOTS.mkdir(parents=True)
     DIFFS.mkdir(parents=True)
 
@@ -81,10 +86,15 @@ ul {{ margin: 8px 0 0; padding-left: 18px; color: #ffb0a8; }} ul:empty {{ displa
     return path
 
 
-def finish(terminal) -> None:
+def finish(terminal, reason: str = "") -> None:
     results = _results()
     if not results:
         return
+    accepted = [f"{r['page']}/{r['scenario']}/{r['width']}/{r['mode']}" for r in results if r["pixels"] == "accepted"]
+    if accepted:
+        stamp = datetime.now(UTC).isoformat(timespec="seconds")
+        with (ROOT / ".ui-baselines" / "accepted.log").open("a", encoding="utf-8") as handle:
+            handle.write(f"{stamp} {reason}\n" + "".join(f"  {name}\n" for name in accepted))
     sheet = write_sheet(results)
     verdicts = Counter(r["pixels"] for r in results)
     terminal.section("ui checks")
@@ -97,7 +107,9 @@ def finish(terminal) -> None:
         )
     if verdicts["different"]:
         terminal.write_line(
-            f"{verdicts['different']} look different. If intended: pytest -m ui --ui-accept", yellow=True
+            f"{verdicts['different']} look different. Look at them, then if right: "
+            "pytest -m ui --ui-accept --reason ...",
+            yellow=True,
         )
     if verdicts["accepted"]:
-        terminal.write_line(f"{verdicts['accepted']} baselines updated.", green=True)
+        terminal.write_line(f"{verdicts['accepted']} baselines updated. The old ones are under replaced/.", green=True)

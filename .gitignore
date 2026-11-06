@@ -15,4 +15,5 @@ dist/
 /.test-review/
 /.ui-baselines/
 /.ui-report/
+/.ui-report-previous/
 CLAUDE.local.md

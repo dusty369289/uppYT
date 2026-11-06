@@ -6,12 +6,14 @@ import socket
 
 import pytest
 
+from tests.harness import failures
 from tests.harness.timing import plugin as timing
 from tests.harness.ui import report as ui_report
 
 
 def pytest_addoption(parser):
     timing.add_options(parser)
+    failures.add_options(parser)
     parser.getgroup("ui checks").addoption(
         "--ui-accept", action="store_true", help="approve the current look as this machine's new pixel baselines"
     )
@@ -24,7 +26,7 @@ def pytest_sessionstart(session):
 
 def pytest_terminal_summary(terminalreporter, config):
     if _running_ui(config):
-        ui_report.finish(terminalreporter)
+        ui_report.finish(terminalreporter, config.getoption("--reason"))
 
 
 def _running_ui(config) -> bool:
@@ -33,12 +35,16 @@ def _running_ui(config) -> bool:
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_cmdline_main(config):
-    return timing.handle_commands(config)
+    answer = failures.handle_commands(config)
+    return timing.handle_commands(config) if answer is None else answer
 
 
 def pytest_configure(config):
     if not hasattr(config, "workerinput"):  # the main process, in parallel runs
         config.pluginmanager.register(timing.TimingPlugin(), "uppyt-timing")
+        config.pluginmanager.register(failures.FailurePlugin(), "uppyt-failures")
+    if config.getoption("--ui-accept") and not config.getoption("--reason").strip():
+        raise pytest.UsageError('Say what you looked at and why it\'s right: --ui-accept --reason "..."')
 
 
 @pytest.fixture(autouse=True)

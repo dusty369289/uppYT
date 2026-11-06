@@ -40,7 +40,9 @@ def add_options(parser) -> None:
     group = parser.getgroup("timing review")
     group.addoption("--timing-report", action="store_true", help="show the review queue without running tests")
     group.addoption("--timing-accept", metavar="TEST", help="accept the new time of tests matching this text")
-    group.addoption("--reason", default="", help="why the new time is right. Required with --timing-accept")
+    group.addoption(
+        "--reason", default="", help="why it's right. Required with --timing-accept, --ui-accept and --flaky-explain"
+    )
 
 
 def handle_commands(config) -> int | None:
