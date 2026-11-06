@@ -503,10 +503,47 @@ def test_a_failing_feed_is_reported_and_retried_later(scene):
     assert "couldn't be updated" in scene.app.board.view().notes[-1]
     assert scene.app.channels.list()[0].problem
     assert scene.app.refresh.run().checked == 0  # backing off
-    scene.clock.advance(minutes=31)
+    scene.clock.advance(minutes=6)
     scene.transport.serve_feed(SECOND, FeedKind.VIDEOS, feed_xml(SECOND, "Veritasium", []))
     assert scene.app.refresh.run().failed == 0
     assert scene.app.board.view().failing_feeds == 0
+
+
+def test_a_failed_feed_is_checked_again_within_minutes_not_hours(scene):
+    """A bad spell was measured at about 40 seconds, so the next look should come soon after."""
+    scene.app.channels.add("@veritasium")
+    scene.clock.advance(hours=2)
+    scene.runtime.feeds._cache.clear()
+    scene.transport.break_feed(SECOND, FeedKind.VIDEOS)
+    assert scene.app.refresh.run().failed == 1
+    scene.clock.advance(minutes=4)
+    assert scene.app.refresh.run().checked == 0
+    scene.clock.advance(minutes=2)
+    assert scene.app.refresh.run().checked == 1
+
+
+def test_a_failed_feed_can_be_forced_straight_away(scene):
+    """The 15-minute rule respects YouTube's cache of good answers. There's nothing cached after a failure."""
+    scene.app.channels.add("@veritasium")
+    scene.clock.advance(hours=2)
+    scene.runtime.feeds._cache.clear()
+    scene.transport.break_feed(SECOND, FeedKind.VIDEOS)
+    scene.app.refresh.run()
+    scene.clock.advance(seconds=30)
+    assert scene.app.refresh.run(force=True).checked == 1
+
+
+def test_repeated_failures_back_off_from_there(scene):
+    scene.app.channels.add("@veritasium")
+    scene.clock.advance(hours=2)
+    scene.runtime.feeds._cache.clear()
+    scene.transport.break_feed(SECOND, FeedKind.VIDEOS)
+    waits = []
+    for _ in range(4):
+        scene.app.refresh.run(force=True)
+        state = scene.runtime.catalogue.feed_states([SECOND])[(SECOND, FeedKind.VIDEOS)]
+        waits.append(state.next_check_at - scene.clock.now)
+    assert waits == [timedelta(minutes=m) for m in (5, 10, 20, 40)]
 
 
 def test_a_dropped_connection_counts_as_a_failure_not_a_crash(scene):

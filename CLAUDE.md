@@ -75,7 +75,8 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
 ## Things that have caught us out
 - Feed root `yt:channelId` can omit the `UC` prefix. Read the channel ID from entries or the author URI.
 - **Playlist feeds are flaky.** The same URL answers 200, 404 or 500 at random (Shorts failed 8 in 12, once 12 in 12).
-  `FeedClient` retries, and "missing" means every attempt said 404. The plain channel feed was reliable (20 in 20) and
+  A bad spell lasts about 40 seconds and hits one feed while others are fine, so retries alone can't guarantee a fetch.
+  `FeedClient` retries, "missing" means every attempt said 404, a failed feed is rechecked after 5 minutes, doubling. The plain channel feed was reliable (20 in 20) and
   its links tell Shorts apart, so it vouches for feeds that didn't answer. Tests with recordings can't show this.
 - **Never keep YouTube's cookies.** Keeping one sends UK and EU visitors to its consent page. Without one, the redirect
   comes straight back. The fixtures passed while every real lookup failed, so check real behaviour with a live run:

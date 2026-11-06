@@ -59,3 +59,8 @@ Last-Modified. Prefixes confirmed: `UU` all, `UULF` videos, `UUSH` shorts, `UULV
   empty just after being added. Adding 3Blue1Brown hit this for real: Videos answered 404 through all six attempts.
 - **A failed poll never makes a feed absent on its first try.** Only a full probe or three failures in a row do.
 - **The label is "not found", not "not offered".** It reports what YouTube answered, which may be wrong for a while.
+- **Failed feeds are rechecked after 5 minutes, doubling, not 30.** Measured over 150 s: one feed failed 11 polls running
+  (about 40 s) while three others never failed, so six retries over 5 s can't outlast a bad spell. The cause on YouTube's
+  side is unknown. No retry can promise a fetch at that moment. What's promised is eventual: rechecks continue, and the
+  channel feed fills in meanwhile. Videos can only be lost if more than 15 are uploaded before anything answers.
+- **The 15-minute rule only applies after a success.** It respects YouTube's cache of good answers.

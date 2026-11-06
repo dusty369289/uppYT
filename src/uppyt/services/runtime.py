@@ -64,7 +64,7 @@ class Tuning:
 
     refresh_every: timedelta = timedelta(hours=1)
     never_within: timedelta = timedelta(minutes=15)  # YouTube's max-age
-    retry_after: timedelta = timedelta(minutes=30)
+    retry_after: timedelta = timedelta(minutes=5)  # a flaky feed's bad spell was measured at about 40 seconds
     lock_lease: timedelta = timedelta(minutes=30)
     workers: int = 4
     recheck_attempts: int = 2  # a feed believed absent is only checked lightly, since most channels lack some feeds

@@ -41,8 +41,9 @@ class RefreshService:
     def _is_due(self, state: FeedState | None, now: datetime, force: bool) -> bool:
         if state is None:
             return True
-        if state.last_checked_at and now - state.last_checked_at < self._runtime.tuning.never_within:
-            return False
+        succeeded = state.last_success_at is not None and state.last_success_at == state.last_checked_at
+        if succeeded and now - state.last_checked_at < self._runtime.tuning.never_within:
+            return False  # YouTube caches good answers for this long. A failure has nothing cached to respect
         if state.status is FeedStatus.ABSENT:
             return state.next_check_at is None or state.next_check_at <= now  # forcing shouldn't pester absent feeds
         return force or state.next_check_at is None or state.next_check_at <= now
