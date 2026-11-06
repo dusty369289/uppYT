@@ -27,7 +27,7 @@ src/uppyt/
   domain/    frozen models, feed catalogue, priorities, ranking, window. No I/O
   sources/   Transport (the only HTTP code), feed client and parser, channel resolver, OPML
   store/     Catalogue (SQLite), ProfileStore (TOML/JSON), atomic writes
-  services/  all behaviour. `UppYT` is the facade, and its public methods are the registered operations
+  services/  all behaviour, one class per area, gathered by `UppYT`. Public methods are the registered operations
   ops.py     operation registry
   web/ tui/ cli/   interfaces. They call operations and hold no business logic
 ```

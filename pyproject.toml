@@ -46,6 +46,7 @@ testpaths = ["tests"]
 timeout = 10 # a hung test fails with a stack trace. A hang is a bug, not a limit to raise.
 addopts = "-n auto -m 'not ui and not live'"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 tmp_path_retention_policy = "failed"
 markers = [
     "ui: browser checks across the page matrix. Run with: pytest -m ui -n 0",

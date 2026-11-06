@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Protocol
 from urllib.parse import urlsplit
 
+from ..domain.errors import UserError
 from ..domain.models import CHANNEL_ID
 from .transport import IMAGE_HOSTS, Transport, TransportError, is_allowed
 
@@ -20,11 +21,11 @@ _HANDLE = re.compile(r'"vanityChannelUrl":"https?://www\.youtube\.com/(@[^"/]+)"
 _HANDLE_TEXT = re.compile(r"^@[\w.·-]{1,60}$")
 
 
-class ChannelInputError(ValueError):
+class ChannelInputError(UserError):
     """What someone typed can't be a channel. The message says what would work."""
 
 
-class ChannelLookupError(Exception):
+class ChannelLookupError(UserError):
     """A real answer from YouTube that isn't a usable channel, or no answer. The message is written for people."""
 
 

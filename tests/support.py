@@ -96,3 +96,39 @@ def entries(
             for i in range(count)
         ),
     )
+
+
+SECOND = "UCHnyfMqiRRG1u-2MsSQLbXA"
+SECOND_PAGE = (
+    '<link rel="canonical" href="https://www.youtube.com/channel/UCHnyfMqiRRG1u-2MsSQLbXA">'
+    '<meta property="og:title" content="Veritasium">'
+    '<meta property="og:image" content="https://yt3.googleusercontent.com/veri=s900-c-k">'
+    '<script>{"vanityChannelUrl":"http://www.youtube.com/@veritasium"}</script>'
+)
+
+
+def feed_xml(channel_id: str, name: str, videos: list[tuple[str, str, datetime]]) -> str:
+    """A feed in YouTube's recorded shape, for scenes the recordings don't happen to contain."""
+    body = "".join(
+        f"""<entry><yt:videoId>{vid}</yt:videoId><yt:channelId>{channel_id}</yt:channelId><title>{title}</title>
+        <author><name>{name}</name><uri>https://www.youtube.com/channel/{channel_id}</uri></author>
+        <published>{when.isoformat()}</published><media:group><media:community>
+        <media:statistics views="10"/></media:community></media:group></entry>"""
+        for vid, title, when in videos
+    )
+    return f"""<?xml version="1.0"?><feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+    xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
+    <title>Videos</title><author><name>{name}</name><uri>https://www.youtube.com/channel/{channel_id}</uri></author>
+    {body}</feed>"""
+
+
+def world() -> FakeTransport:
+    """Two followable channels: the recorded one, and a second one with a handful of recent videos."""
+    transport = mkbhd_transport()
+    serve_avatars(transport)
+    transport.routes["https://www.youtube.com/@veritasium"] = Response(200, SECOND_PAGE.encode(), "text/html")
+    transport.routes[f"https://www.youtube.com/channel/{SECOND}"] = Response(200, SECOND_PAGE.encode(), "text/html")
+    transport.routes["https://yt3.googleusercontent.com/veri=s176-c-k"] = Response(200, JPEG, "image/jpeg")
+    videos = [(f"veri{i:04d}xxx", f"Veritasium video {i}", NOW - timedelta(days=2 + i * 5)) for i in range(4)]
+    transport.serve_feed(SECOND, FeedKind.VIDEOS, feed_xml(SECOND, "Veritasium", videos))
+    return transport

@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .models import Priority
 
+THEMES: tuple[tuple[str, str], ...] = (("lights-down", "Lights down"),)
+
 
 class HeadStarts(BaseModel):
     """How many days newer each priority counts on the board."""
@@ -30,7 +32,7 @@ class Settings(BaseModel):
     window_days: int = Field(default=60, ge=1, le=3650)
     head_starts: HeadStarts = Field(default_factory=HeadStarts)
     repeat_penalty_days: float = Field(default=7, ge=0, le=3650)
-    theme: str = Field(default="lights-down", pattern=r"^[a-z0-9-]{1,40}$")
+    theme: Literal["lights-down"] = "lights-down"  # add new themes here and to THEMES
     appearance: Literal["system", "dark", "light"] = "system"
     page_size: int = Field(default=48, ge=6, le=500)
 

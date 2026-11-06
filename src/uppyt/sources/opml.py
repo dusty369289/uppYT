@@ -9,11 +9,12 @@ from xml.etree.ElementTree import Element, ParseError, SubElement, indent, tostr
 import defusedxml.ElementTree as SafeXML
 from defusedxml import DefusedXmlException
 
+from ..domain.errors import UserError
 from ..domain.feeds import FEED_ROOT, channel_feed_url, channel_id_from_playlist
 from ..domain.models import CHANNEL_ID, Priority
 
 
-class OpmlError(ValueError):
+class OpmlError(UserError):
     pass
 
 

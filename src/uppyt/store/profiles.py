@@ -17,6 +17,7 @@ import tomlkit
 from pydantic import ValidationError
 from tomlkit.exceptions import TOMLKitError
 
+from ..domain.errors import UserError
 from ..domain.feeds import TOGGLES, FeedKind
 from ..domain.models import CHANNEL_ID, Priority, Subscription, normalise_tags
 from ..domain.settings import Settings
@@ -25,7 +26,7 @@ from .files import atomic_write
 PROFILE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _-]{0,39}$")
 
 
-class ProfileError(ValueError):
+class ProfileError(UserError):
     """Written for people: the message says what's wrong and how to put it right."""
 
 
