@@ -956,3 +956,41 @@ async def test_the_channels_and_seen_actions_never_stack_on_a_dialog(scene):
         await pilot.pause()
         assert isinstance(app.screen, HelpScreen)
         assert len(app.screen_stack) == 3
+
+
+@pytest.mark.parametrize(("key", "screen"), [("c", ChannelsScreen), ("v", SeenScreen)])
+async def test_switching_profile_from_a_list_goes_back_to_the_board(scene, key, screen):
+    """A list left open would still show the old profile while acting on the new one."""
+    scene.services("dusty").channels.add("@veritasium")
+    scene.services("nat")
+    app = scene.app()
+    async with app.run_test(size=(100, 50)) as pilot:
+        await settle(app, pilot)
+        board = app.screen
+        await pilot.press(key)
+        await pilot.pause()
+        assert isinstance(app.screen, screen)
+        await pilot.press("p")
+        await pilot.pause()
+        names = [n[0] for n in rows(app, "#profiles")]
+        await pilot.press(*(["down"] * names.index("nat")), "enter")
+        await settle(app, pilot)
+        assert app.screen is board
+        assert len(app.screen_stack) == 1
+        assert "nat" in status(app)
+
+
+async def test_putting_back_a_video_that_is_no_longer_seen_says_so(scene):
+    services = scene.services()
+    services.channels.add("@veritasium")
+    services.seen.mark("veri0000xxx")
+    app = scene.app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("v")
+        await pilot.pause()
+        services.seen.undo("veri0000xxx")  # put back elsewhere, say from the web app
+        await pilot.press("u")
+        await pilot.pause()
+        assert any("wasn't marked seen" in m for m in notified(app))
+        assert rows(app, "#seen") == []

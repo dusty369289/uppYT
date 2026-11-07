@@ -473,7 +473,8 @@ class SeenScreen(Screen):
             return
         key = table.coordinate_to_cell_key(table.cursor_coordinate).row_key.value
         try:
-            self.app.services.seen.undo(str(key))
+            if self.app.services.seen.undo(str(key)) is None:
+                self.app.notify("That video wasn't marked seen any more.", markup=False)
         except UserError as error:
             self.app.report(error)
         self.reload()
@@ -861,9 +862,15 @@ class UppytApp(App):
             if name:
                 self.services = UppYT(self.runtime, self.runtime.profile(name))
                 self.tag = None  # another profile's tags mean nothing here
-                self._begin()
+                self.call_later(self._switched)
 
         self.push_screen(ProfileScreen(), chosen)
+
+    def _switched(self) -> None:
+        """Back to the board once the dialog has gone: a list left open would show the old profile."""
+        while len(self.screen_stack) > 1:
+            self.pop_screen()
+        self._begin()
 
     def action_refresh(self) -> None:
         if not self.services:
