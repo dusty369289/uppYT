@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).parent.parent
 CONFTEST = """
 from pathlib import Path
@@ -83,24 +85,27 @@ def run(tmp_path, *extra) -> dict[str, float]:
     return {name.split("::")[1]: record["runs"][-1] for name, record in stored["tests"].items()}
 
 
-def test_shared_setup_isnt_charged_to_the_test_that_triggered_it(tmp_path):
-    took = run(tmp_path)
+@pytest.fixture(scope="module")
+def took(tmp_path_factory) -> dict[str, float]:
+    """One serial run shared by the tests below. Each still checks its own part of it."""
+    return run(tmp_path_factory.mktemp("meter"))
+
+
+def test_shared_setup_isnt_charged_to_the_test_that_triggered_it(took):
     assert took["test_first"] < 0.1
     assert took["test_second"] < 0.1
 
 
-def test_shared_teardown_isnt_charged_to_the_last_test(tmp_path):
-    assert run(tmp_path)["test_last"] < 0.1
+def test_shared_teardown_isnt_charged_to_the_last_test(took):
+    assert took["test_last"] < 0.1
 
 
-def test_shared_things_started_inside_a_test_arent_charged_to_it(tmp_path):
-    took = run(tmp_path)
+def test_shared_things_started_inside_a_test_arent_charged_to_it(took):
     assert took["test_scene_first"] < 0.1
     assert took["test_scene_second"] < 0.1
 
 
-def test_a_tests_own_fixture_and_work_still_count(tmp_path):
-    took = run(tmp_path)
+def test_a_tests_own_fixture_and_work_still_count(took):
     assert 0.35 < took["test_own_fixture_counts"] < 0.8
     assert 0.15 < took["test_own_work_counts"] < 0.6
 
