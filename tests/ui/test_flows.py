@@ -143,6 +143,40 @@ def test_check_now_updates_the_board_it_reports_on(board):
     expect(page.locator('[data-video="fresh000xxx"]')).to_have_count(1)
 
 
+BUSY_PROBE = """() => {
+    window.busy = [];
+    document.body.addEventListener("htmx:beforeSend", () => {
+        const results = document.getElementById("results");
+        const check = [...document.querySelectorAll("button")].find(b => b.textContent === "Check now");
+        window.busy.push({ opacity: getComputedStyle(results).opacity, checkDisabled: check.disabled });
+    });
+}"""
+
+
+def test_the_board_dims_while_it_loads(board):
+    """Nothing changed on screen during a slow check, and a second click asked YouTube for every feed again."""
+    page, _, _ = board
+    page.evaluate(BUSY_PROBE)
+    page.get_by_label("How far back").select_option("7")
+    expect(page).to_have_url(re.compile(r"window=7"))
+    assert page.evaluate("window.busy")[0]["opacity"] == "0.6"
+    expect(page.locator("#results")).to_have_css("opacity", "1")
+    refreshes = []
+    page.on("request", lambda request: refreshes.append(request) if request.url.endswith("/refresh") else None)
+    page.evaluate("window.busy = []")
+    page.evaluate("""() => {
+        const check = [...document.querySelectorAll("button")].find(b => b.textContent === "Check now");
+        check.click();
+        check.click();
+    }""")
+    expect(page.locator(".toast")).to_be_visible()
+    first = page.evaluate("window.busy")[0]
+    assert first == {"opacity": "0.6", "checkDisabled": True}
+    expect(page.locator("#results")).to_have_css("opacity", "1")
+    expect(page.get_by_role("button", name="Check now")).to_be_enabled()
+    assert len(refreshes) == 1
+
+
 def test_unticking_every_kind_says_why_nothing_shows(board):
     page, _, _ = board
     for label in ("Videos", "Live", "Shorts", "Members"):

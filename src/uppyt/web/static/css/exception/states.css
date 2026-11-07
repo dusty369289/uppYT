@@ -1,3 +1,4 @@
 /* States that break the usual rules. */
+/* While htmx loads: the board's results, pointed at by hx-indicator, dim until the answer arrives. */
 .htmx-request.is-busy, .is-busy .htmx-request { opacity: .6; }
 .card[data-current="true"] { outline: 2px solid var(--ink); outline-offset: -2px; }
