@@ -150,6 +150,7 @@ def test_the_board_lists_and_marks_seen(cli):
     assert "Undo with" in cli("seen", first["id"])
     assert "3 unseen" in cli("board")
     assert first["title"] in cli("seen", "--list")
+    assert json.loads(cli("seen", "--list", "--json"))["items"][0]["seen_at"]
     assert first["id"] in cli("seen", "--undo")
     assert "4 unseen" in cli("board")
     assert "Nothing to undo" in cli("seen", "--undo")

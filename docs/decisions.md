@@ -132,3 +132,15 @@ about 1 s each, but the records said 4.4 s for a page that takes 0.8 s alone.
   rather than hidden or flooding the queue. `--timing-accept <file>.py` accepts all of it.
 - **The old store was moved aside to `timings-old-format.json`, not deleted**, because its numbers were on the wrong scale and
   couldn't be compared. This is a format change for a real bug, not a way of clearing warnings. Baselines relearn in 5 runs.
+
+## 2026-11-07: reading on when the start of a channel page falls short
+
+- **Reading only the start wasn't as safe as first claimed.** Only a missing ID led to a whole read. A name, picture or handle
+  beyond 1.2 MB was silently lost, and saved that way, since the page isn't fetched again. Now anything missing means a whole
+  read. The limit stays: it was measured on 3 channels, and a shape change now costs one more read, not wrong details.
+- **If that second read fails, what the start had is used and not remembered**, so the next try can get the rest.
+- **A handle now has to come from the page's own `alternate` tag or `vanityChannelUrl`.** A bare `m.youtube.com/@name` link
+  could have been another channel's.
+- **Handles are re-read after an import.** An import skips them, and remembering that for 15 minutes could save a channel
+  followed by hand soon after without one.
+- `tests/test_page_limit.py` moves, cuts, removes and fakes tags. Taking out each protection in turn failed at least one test.

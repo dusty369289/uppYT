@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -49,7 +50,7 @@ class FakeTransport:
             answer = answer.pop(0) if len(answer) > 1 else answer[0]
         if isinstance(answer, Exception):
             raise answer
-        return answer
+        return replace(answer, content=answer.content[:stop_after]) if stop_after else answer
 
     def serve_feed(self, channel_id: str, kind: FeedKind, content: bytes | str) -> None:
         body = content.encode() if isinstance(content, str) else content

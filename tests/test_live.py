@@ -60,12 +60,16 @@ def test_the_channel_feed_tells_shorts_apart(feeds):
     assert any(not e.is_short for e in answer.feed.entries)
 
 
-@pytest.mark.parametrize("link", ["@mkbhd", "https://www.youtube.com/c/mkbhd"])
+@pytest.mark.parametrize("link", ["@mkbhd", "@veritasium", "https://www.youtube.com/c/mkbhd"])
 def test_the_start_of_a_page_is_enough(transport, link):
-    """If this fails, YouTube's page changed shape, and lookups will quietly fall back to reading all 3 MB."""
+    """If this fails, YouTube's page changed shape. Lookups still work, but cost a second read of all 3 MB."""
     reply = transport.get(channel_page_url(link), stop_after=PAGE_START)
     assert len(reply.content) < 2 * PAGE_START
-    assert parse_channel_page(reply.text).id == MKBHD
+    channel = parse_channel_page(reply.text)
+    assert channel.id.startswith("UC")
+    assert channel.name != channel.id
+    assert not link.startswith("@") or (channel.handle and channel.handle.startswith("@"))  # /c/ links read it all
+    assert channel.avatar_url
 
 
 def test_avatars_download_at_the_size_asked_for(transport):

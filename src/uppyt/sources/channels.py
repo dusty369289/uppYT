@@ -7,7 +7,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Protocol
+from typing import NamedTuple, Protocol
 from urllib.parse import urlsplit
 
 from ..domain.errors import UserError
@@ -15,14 +15,17 @@ from ..domain.models import CHANNEL_ID
 from .transport import IMAGE_HOSTS, Response, Transport, TransportError, is_allowed
 
 REMEMBER_FOR = timedelta(minutes=15)
-# A channel page is about 3 MB. Its ID, name, picture and, on @name links, its handle all sit in the first 830 KB.
+# A channel page is about 3 MB. On 3 channels measured, the ID, name, picture and any @name handle all ended by 830 KB.
 PAGE_START = 1_200_000
 AVATAR_SIZE = 176  # twice the largest it's ever shown
 YOUTUBE_HOSTS = frozenset({"www.youtube.com", "youtube.com", "m.youtube.com"})
 _CANONICAL = re.compile(r'<link rel="canonical" href="https://www\.youtube\.com/channel/(UC[\w-]{22})"')
 _TITLE = re.compile(r'<meta property="og:title" content="([^"]*)"')
 _IMAGE = re.compile(r'<meta property="og:image" content="([^"]*)"')
-_HANDLE = re.compile(r'"vanityChannelUrl":"https?://www\.youtube\.com/(@[^"/]+)"|m\.youtube\.com/(@[^"/?]+)"')
+_HANDLE = re.compile(
+    r'"vanityChannelUrl":"https?://www\.youtube\.com/(@[^"/]+)"'
+    r'|<link rel="alternate"[^>]*href="https://m\.youtube\.com/(@[^"/?]+)"'  # a bare link could be another channel's
+)
 _HANDLE_TEXT = re.compile(r"^@[\w.·-]{1,60}$")
 
 
@@ -95,10 +98,25 @@ def parse_channel_page(page: str) -> ResolvedChannel:
     avatar = html.unescape(image.group(1)) if image else None
     return ResolvedChannel(
         id=canonical.group(1),
-        name=html.unescape(title.group(1)) if title else canonical.group(1),
+        name=(html.unescape(title.group(1)).strip() if title else "") or canonical.group(1),
         handle=(handle.group(1) or handle.group(2)) if handle else None,
         avatar_url=smaller_avatar(avatar) if avatar and is_allowed(avatar, IMAGE_HOSTS) else None,
     )
+
+
+def _names_everything(page: str, *, need_handle: bool) -> bool:
+    """Whether more of the page could add anything. A picture on the wrong host counts: reading on won't change it."""
+    title = _TITLE.search(page)
+    has_name = bool(title and title.group(1).strip())
+    return bool(
+        _CANONICAL.search(page) and has_name and _IMAGE.search(page) and (_HANDLE.search(page) or not need_handle)
+    )
+
+
+class _Known(NamedTuple):
+    at: datetime
+    channel: ResolvedChannel
+    read_whole: bool
 
 
 class PageResolver:
@@ -107,26 +125,32 @@ class PageResolver:
     def __init__(self, transport: Transport, clock: Callable[[], datetime]):
         self._transport = transport
         self._clock = clock
-        self._known: dict[str, tuple[datetime, ResolvedChannel]] = {}
+        self._known: dict[str, _Known] = {}
 
     def resolve(self, text: str, *, need_handle: bool = True) -> ResolvedChannel:
         """Reads only as much of the page as it needs. /channel/ links only name their handle near the very end, so
-        that's a full read, unless the handle doesn't matter, as when importing a long list."""
+        that's a full read, unless the handle doesn't matter, as when importing a long list.
+
+        If anything's missing from the start, YouTube's page may have changed shape, so it reads the lot. If that read
+        fails, what the start had is better than nothing, but isn't remembered, so the next try can get the rest."""
         url = channel_page_url(text)
         now = self._clock()
         known = self._known.get(url)
-        if known and now - known[0] < REMEMBER_FOR:
-            return known[1]
-        start_is_enough = "/@" in url or not need_handle
-        reply = self._fetch(url, PAGE_START if start_is_enough else None)
-        try:
-            channel = parse_channel_page(reply.text)
-        except ChannelLookupError:
-            if not start_is_enough:
-                raise
-            channel = parse_channel_page(self._fetch(url, None).text)  # in case YouTube's page changes shape
-        self._known[url] = (now, channel)
-        self._known[channel_page_url(channel.id)] = (now, channel)
+        if known and now - known.at < REMEMBER_FOR and (not need_handle or known.channel.handle or known.read_whole):
+            return known.channel
+        read_whole = "/@" not in url and need_handle
+        page = self._fetch(url, None if read_whole else PAGE_START).text
+        if not read_whole and not _names_everything(page, need_handle=need_handle):
+            try:
+                channel, read_whole = parse_channel_page(self._fetch(url, None).text), True
+            except ChannelLookupError:
+                if not _CANONICAL.search(page):
+                    raise
+                return parse_channel_page(page)
+        else:
+            channel = parse_channel_page(page)
+        for key in (url, channel_page_url(channel.id)):
+            self._known[key] = _Known(now, channel, read_whole)
         return channel
 
     def _fetch(self, url: str, stop_after: int | None) -> Response:
