@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from textual.widgets import Checkbox, DataTable, Input, Select, Static
+from textual.worker import WorkerCancelled, WorkerFailed
 
 from tests.support import MKBHD, NOW, SECOND, FixedClock, entries, feed_xml, no_sleep, world
 from uppyt.domain.feeds import FeedKind
@@ -61,10 +64,36 @@ def status(app) -> str:
     return str(app.query_one("#status", Static).render())
 
 
+async def workers_done(app) -> None:
+    """A worker that closes its own screen gets cancelled as it does, which is fine. One that fails isn't."""
+    answers = await asyncio.gather(*(worker.wait() for worker in app.workers), return_exceptions=True)
+    for answer in answers:
+        if isinstance(answer, Exception) and not isinstance(answer, WorkerCancelled):
+            raise answer
+
+
 async def settle(app, pilot) -> None:
     await pilot.pause()
-    await app.workers.wait_for_complete()
+    await workers_done(app)
     await pilot.pause()
+
+
+async def test_waiting_for_workers_ignores_cancelled_ones_but_not_failed_ones(scene):
+    async def forever():
+        await asyncio.sleep(60)
+
+    async def broken():
+        raise ValueError("broken")
+
+    app = scene.app()
+    async with app.run_test() as pilot:
+        worker = app.run_worker(forever(), exit_on_error=False)
+        await pilot.pause()
+        worker.cancel()
+        await workers_done(app)
+        app.run_worker(broken(), exit_on_error=False)
+        with pytest.raises(WorkerFailed):
+            await workers_done(app)
 
 
 async def test_a_blank_slate_says_how_to_begin(scene):

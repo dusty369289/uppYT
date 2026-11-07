@@ -144,3 +144,9 @@ about 1 s each, but the records said 4.4 s for a page that takes 0.8 s alone.
 - **Handles are re-read after an import.** An import skips them, and remembering that for 15 minutes could save a channel
   followed by hand soon after without one.
 - `tests/test_page_limit.py` moves, cuts, removes and fakes tags. Taking out each protection in turn failed at least one test.
+
+## 2026-11-07: tests run on 4 workers, with their folders in RAM
+
+- **Browser checks take no longer on 4 workers than on 8** (63 to 68 s against 67 to 68 s), but each test takes 1.6x as long on 8. The default is now 4, for less CPU and fan noise and steadier timing.
+- **Test folders live in `/dev/shm`.** Disk speed moved file-wide timings by 2x between one night and the next morning, with no code change. The owner agreed, on condition nothing leaks. Each run removes its own folder (peak about 6 MB), the next run removes any folder a killed run left, and without a RAM disk or 1 GB free they go to pytest's usual place. The cost is that timings no longer notice disk slowdowns.
+- Baselines for the files that sped up were accepted with that reason, after reading each file's median and the slowest tests.

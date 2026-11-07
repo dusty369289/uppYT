@@ -6,7 +6,7 @@ import socket
 
 import pytest
 
-from tests.harness import failures
+from tests.harness import failures, ram_temp
 from tests.harness.timing import meter
 from tests.harness.timing import plugin as timing
 from tests.harness.ui import report as ui_report
@@ -46,12 +46,22 @@ def pytest_cmdline_main(config):
 
 
 def pytest_configure(config):
+    if not hasattr(config, "workerinput") and not config.option.basetemp:
+        config.uppyt_ram_folder = ram_temp.claim()
+        if config.uppyt_ram_folder:
+            config.option.basetemp = str(config.uppyt_ram_folder)  # workers get a folder each inside this one
     config.pluginmanager.register(meter.SharedSetupMeter(), "uppyt-shared-setup")
     if not hasattr(config, "workerinput"):  # the main process, in parallel runs
         config.pluginmanager.register(timing.TimingPlugin(), "uppyt-timing")
         config.pluginmanager.register(failures.FailurePlugin(), "uppyt-failures")
     if config.getoption("--ui-accept") and not config.getoption("--reason").strip():
         raise pytest.UsageError('Say what you looked at and why it\'s right: --ui-accept --reason "..."')
+
+
+def pytest_unconfigure(config):
+    folder = getattr(config, "uppyt_ram_folder", None)
+    if folder:
+        ram_temp.release(folder)
 
 
 @pytest.fixture(autouse=True)
