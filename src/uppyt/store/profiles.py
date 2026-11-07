@@ -157,7 +157,16 @@ class ProfileStore:
                 return {}
             except ValueError as error:
                 raise ProfileError(f"{self._seen_path} can't be read: {error}") from error
+            return self._parse_seen(raw)
+
+    def _parse_seen(self, raw: object) -> dict[str, datetime]:
+        """Raises rather than skipping a bad entry, since the next mark would write the file back without it."""
+        if not isinstance(raw, dict):
+            raise ProfileError(f"{self._seen_path} can't be read: it should map video IDs to when they were marked.")
+        try:
             return {video: datetime.fromisoformat(when).astimezone(UTC) for video, when in raw.items()}
+        except (TypeError, ValueError) as error:
+            raise ProfileError(f"{self._seen_path} can't be read: {error}") from error
 
     def _write_seen(self, seen: dict[str, datetime]) -> None:
         atomic_write(self._seen_path, json.dumps({v: w.isoformat() for v, w in seen.items()}, indent=0))

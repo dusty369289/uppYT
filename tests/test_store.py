@@ -679,6 +679,16 @@ def test_a_deleted_channel_file_is_an_empty_list(profile):
     assert profile.subscriptions() == {}
 
 
+@pytest.mark.parametrize("text", ['{"abc": null}', "[]", '{"abc": "garbage"}', '{"abc": 5}', '"text"'])
+def test_a_damaged_seen_list_says_which_file(profile, text):
+    """A hand edit gone wrong gave a bare TypeError on every page, naming nothing."""
+    (profile.folder / "seen.json").write_text(text)
+    with pytest.raises(ProfileError, match=r"seen\.json"):
+        profile.seen()
+    with pytest.raises(ProfileError, match=r"seen\.json"):
+        profile.mark_seen("v", NOW)
+
+
 def test_profiles_keep_to_their_own_folders(tmp_path):
     directory = ProfileDirectory(tmp_path)
     a, b = directory.create("a"), directory.create("b")
