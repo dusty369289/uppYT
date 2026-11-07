@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.gzip import GZipMiddleware
 
-from ..domain.errors import NotFound, SettingError, UserError
+from ..domain.errors import NotFound, SettingError, UserError, message_for_people
 from ..domain.feeds import SPECS, TOGGLES, FeedKind
 from ..domain.models import CHANNEL_ID, Priority
 from ..domain.ranking import describe_age
@@ -476,7 +476,8 @@ def create_app(
             app_services.settings.update(changes)
         except UserError as error:  # nothing was saved, so show what was typed and point at what was wrong
             invalid = error.field if isinstance(error, SettingError) else None
-            context = _settings_context(app_services, problem=str(error), typed=changes, invalid=invalid)
+            problem = message_for_people(error)
+            context = _settings_context(app_services, problem=problem, typed=changes, invalid=invalid)
             return render(request, "settings.html", context, status=400)
         return render(request, "settings.html", _settings_context(app_services, saved=True))
 

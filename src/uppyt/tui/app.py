@@ -19,7 +19,7 @@ from textual.content import Content
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Checkbox, DataTable, Footer, Input, Label, Select, Static
 
-from ..domain.errors import UserError
+from ..domain.errors import UserError, message_for_people
 from ..domain.feeds import SPECS, TOGGLES, FeedKind
 from ..domain.models import Priority
 from ..domain.settings import WINDOW_CHOICES, Settings, window_label
@@ -533,7 +533,7 @@ class SettingsScreen(ModalScreen[bool]):
         try:
             self.app.services.settings.update(changes)
         except UserError as error:
-            self.query_one("#problem", Static).update(Text(str(error)))
+            self.query_one("#problem", Static).update(Text(message_for_people(error)))
         else:
             self.dismiss(True)
 

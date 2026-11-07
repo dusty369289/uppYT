@@ -400,7 +400,8 @@ async def test_bad_settings_say_why(scene):
         app.screen.query_one("#set-window_days", Input).value = "-5"
         await pilot.click("#save")
         await pilot.pause()
-        assert "window_days" in str(app.screen.query_one("#problem", Static).render())
+        assert "Default window has to be" in str(app.screen.query_one("#problem", Static).render())
+        assert "(window_days)" not in str(app.screen.query_one("#problem", Static).render())
 
 
 async def test_import_export_and_backup(scene, tmp_path):

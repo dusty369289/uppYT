@@ -407,11 +407,12 @@ def test_bad_settings_say_why(followed):
 
 
 def test_a_bad_setting_keeps_what_was_typed_and_marks_the_field(followed):
-    """Every value in the submit went back to what was saved, and the message used the internal name."""
+    """Every value in the submit went back to what was saved. The internal name is for the command line only."""
     data = {"window_days": "abc", "page_size": "12", "head_starts.high": "20", "appearance": "light"}
     response = followed.post("/settings", data=data)
     assert response.status_code == 400
-    assert "Default window (window_days) has to be a whole number" in unescape(response.text)
+    assert "Default window has to be a whole number from 1 to 3650." in unescape(response.text)
+    assert "(window_days)" not in response.text
     fields = described(response.text)
     assert fields["window_days"]["value"] == "abc"
     assert fields["page_size"]["value"] == "12"
