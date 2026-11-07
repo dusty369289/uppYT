@@ -5,7 +5,7 @@ from __future__ import annotations
 import shutil
 from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import timedelta
 from typing import Any
 
@@ -17,7 +17,7 @@ from ..domain.models import Channel, FeedStatus, Priority, Subscription, normali
 from ..domain.ranking import Candidate, HeadStartRanker, describe_age, in_window, window_for
 from ..domain.settings import MAX_WINDOW_DAYS, Settings
 from ..ops import operation
-from ..sources.channels import ChannelLookupError, ResolvedChannel
+from ..sources.channels import ChannelLookupError
 from ..sources.feeds import Found, Missing
 from ..sources.opml import OpmlChannel, parse_opml, write_opml
 from ..sources.transport import IMAGE_HOSTS, TransportError, is_allowed
@@ -166,12 +166,6 @@ class BoardService:
                 short |= bool(state.history_from and not state.history_complete and state.history_from > start)
             thin += short
         return thin, failing
-
-
-@dataclass
-class _Lookup:
-    resolved: ResolvedChannel
-    available: dict[FeedKind, bool | None]
 
 
 class ChannelService:
