@@ -1,4 +1,4 @@
-<div id="toasts" class="toasts" role="status" aria-live="polite" hx-swap-oob="true">
+<div id="toasts" hx-swap-oob="innerHTML">
   <div class="toast">
     <span class="toast__text">Marked as seen</span>
     <form method="post" action="/seen/{{ video_id }}/undo" hx-post="/seen/{{ video_id }}/undo" hx-target="#results" hx-select="#results" hx-select-oob="#unseen-count" hx-swap="outerHTML">

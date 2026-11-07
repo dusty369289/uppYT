@@ -68,12 +68,15 @@
     if (filters) htmx.trigger(filters, "change");
   });
 
-  // A toast fades after a while, unless someone is about to use it.
+  // A toast fades after a while, unless someone is about to use it. Only the region's contents are swapped, so the
+  // live region itself stays put and screen readers announce the change.
   let toastTimer;
   document.body.addEventListener("htmx:oobAfterSwap", (event) => {
-    if (event.target.id !== "toasts") return;
+    const region = event.detail.target;
+    if (!region || region.id !== "toasts") return;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { if (!event.target.matches(":hover, :focus-within")) event.target.replaceChildren(); }, 8000);
+    const fade = () => { if (!region.matches(":hover, :focus-within")) region.replaceChildren(); };
+    toastTimer = setTimeout(fade, Number(region.dataset.fadeAfter));
   });
 
   // Choosing a filter applies it at once. The form still works without this, through its Apply button.

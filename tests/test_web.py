@@ -214,7 +214,7 @@ def test_marking_seen_with_htmx_answers_with_an_undo(followed):
     assert response.status_code == 200
     assert "Marked as seen" in response.text
     assert "/seen/veri0000xxx/undo" in response.text
-    assert 'hx-swap-oob="true"' in response.text
+    assert 'hx-swap-oob="innerHTML"' in response.text  # the live region stays, so its new words are announced
 
 
 def test_undo_brings_it_back(followed):

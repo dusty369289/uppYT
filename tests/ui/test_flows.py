@@ -52,6 +52,18 @@ def test_marking_seen_removes_the_card_and_offers_undo(board):
     assert video not in scene.services().store.seen()
 
 
+def test_the_toast_region_stays_put_and_still_fades(board):
+    """Screen readers watch a live region for changes. Replacing the region itself may never be announced."""
+    page, _, _ = board
+    page.mouse.move(0, 0)
+    page.evaluate("window.region = document.getElementById('toasts'); window.region.dataset.fadeAfter = '300'")
+    cards(page).first.get_by_role("button").click()
+    expect(page.locator(".toast")).to_contain_text("Marked as seen")
+    assert page.evaluate("window.region === document.getElementById('toasts')")
+    assert page.evaluate("window.region.getAttribute('aria-live')") == "polite"
+    expect(page.locator(".toast")).to_have_count(0)
+
+
 def test_opening_a_video_leaves_the_card_alone(board):
     page, scene, _ = board
     card = cards(page).first
