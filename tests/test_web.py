@@ -420,6 +420,20 @@ def test_refresh_without_javascript_returns_to_the_page(followed):
     assert followed.post("/refresh").status_code == 303
 
 
+def test_checking_from_settings_says_what_it_found(followed):
+    """The Settings button threw the summary away, with or without JavaScript."""
+    page = followed.get("/settings").text
+    button = re.search(r'<form[^>]*action="/refresh"[^>]*>', page).group()
+    assert 'hx-post="/refresh"' in button
+    assert 'hx-swap="none"' in button
+    followed.clock.advance(hours=2)
+    followed.runtime.feeds._cache.clear()
+    response = followed.post("/refresh", headers={"referer": "http://testserver/settings"})
+    assert response.status_code == 200
+    assert "Checked 1 feed" in response.text
+    assert "<h1>Settings</h1>" in response.text
+
+
 def test_settings_show_refresh_status(followed):
     page = followed.get("/settings").text
     assert "1 channel across every profile" in page

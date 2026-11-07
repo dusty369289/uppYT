@@ -45,7 +45,7 @@
     <p class="prose">History can't be downloaded again, because YouTube's feeds list only the newest 15 videos. A backup copies history and every profile to a dated folder.</p>
     <div class="cluster">
       <form method="post" action="/backup"><button class="button" type="submit">Back up now</button></form>
-      <form method="post" action="/refresh"><button class="link-button" type="submit">Check for new videos</button></form>
+      <form method="post" action="/refresh" hx-post="/refresh" hx-swap="none"><button class="link-button" type="submit">Check for new videos</button></form>
     </div>
   </div>
 </div>

@@ -289,6 +289,17 @@ def test_appearance_setting_overrides_the_device(browser, fresh_scene):
     context.close()
 
 
+def test_checking_from_settings_says_what_it_found(browser, fresh_scene):
+    scene = fresh_scene("populated")
+    context = open_context(browser)
+    page = context.new_page()
+    page.goto(scene.url + "/settings")
+    page.get_by_role("button", name="Check for new videos").click()
+    expect(page.locator(".toast")).to_contain_text(re.compile("Checked|checked"))
+    expect(page).to_have_url(scene.url + "/settings")
+    context.close()
+
+
 def test_import_and_export_in_the_browser(browser, fresh_scene, tmp_path):
     scene = fresh_scene("populated")
     context = open_context(browser, accept_downloads=True)

@@ -468,7 +468,10 @@ def create_app(
             response.headers["HX-Reswap"] = "none"
             response.headers["HX-Trigger"] = "uppyt-refreshed"
             return response
-        return _see_other(_safe_back(request))
+        back = _safe_back(request)
+        if urlsplit(back).path == "/settings":  # say what it found, the way Back up now does
+            return render(request, "settings.html", _settings_context(app_services, message=report.summary))
+        return _see_other(back)
 
     @implements("web", "transfer.export")
     @app.get("/export.opml")
