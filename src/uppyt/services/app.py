@@ -196,8 +196,8 @@ class ChannelService:
         return available
 
     @operation("channels.lookup", "Find a channel from a link and show which feeds it offers")
-    def lookup(self, text: str) -> ChannelPreview:
-        resolved = self._runtime.resolver.resolve(text)
+    def lookup(self, text: str, *, need_handle: bool = True) -> ChannelPreview:
+        resolved = self._runtime.resolver.resolve(text, need_handle=need_handle)
         return ChannelPreview(
             channel=Channel(resolved.id, resolved.name, resolved.handle),
             avatar_url=resolved.avatar_url,
@@ -228,9 +228,10 @@ class ChannelService:
         feeds: Iterable[FeedKind] | None = None,
         tags: Iterable[str] = (),
         window_days: int | None = None,
+        need_handle: bool = True,
     ) -> ChannelDetail:
         now = self._runtime.clock()
-        preview = self.lookup(text)
+        preview = self.lookup(text, need_handle=need_handle)
         if preview.following:
             raise UserError(f"You already follow {preview.channel.name}.")
         channel = replace(preview.channel, avatar_file=self._save_avatar(preview.avatar_url, preview.channel.id))
@@ -452,7 +453,7 @@ class TransferService:
             else:
                 try:
                     priority = Priority.NORMAL if entry.priority is None else entry.priority
-                    detail = self._channels.add(entry.channel_id, priority=priority, tags=entry.tags)
+                    detail = self._channels.add(entry.channel_id, priority=priority, tags=entry.tags, need_handle=False)
                     report.added.append(detail.channel.name)
                 except UserError as error:
                     report.failures.append((entry.title, str(error)))

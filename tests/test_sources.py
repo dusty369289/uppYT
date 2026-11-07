@@ -9,6 +9,7 @@ from tests.support import MKBHD, NOW, FakeTransport, FixedClock, mkbhd_transport
 from uppyt.domain.feeds import FeedKind, feed_url
 from uppyt.domain.models import Priority
 from uppyt.sources.channels import (
+    PAGE_START,
     ChannelInputError,
     ChannelLookupError,
     PageResolver,
@@ -259,6 +260,50 @@ def test_a_channel_page_is_only_fetched_once_for_a_preview_and_a_follow():
     resolver.resolve("@mkbhd")
     resolver.resolve(MKBHD)
     assert len(transport.requests) == 1
+
+
+def test_at_links_only_read_the_start_of_the_page():
+    transport = mkbhd_transport()
+    PageResolver(transport, FixedClock()).resolve("@mkbhd")
+    assert transport.stops == [PAGE_START]
+
+
+def test_channel_links_read_the_whole_page_for_the_handle():
+    transport = mkbhd_transport()
+    PageResolver(transport, FixedClock()).resolve(MKBHD)
+    assert transport.stops == [None]
+
+
+def test_imports_skip_the_handle_and_read_only_the_start():
+    transport = mkbhd_transport()
+    PageResolver(transport, FixedClock()).resolve(MKBHD, need_handle=False)
+    assert transport.stops == [PAGE_START]
+
+
+def test_if_youtube_moves_things_it_falls_back_to_the_whole_page():
+    page = recorded_page().encode()
+
+    class CutShort(FakeTransport):
+        def get(self, url, *, stop_after=None):
+            self.stops.append(stop_after)
+            return Response(200, page[:50] if stop_after else page, "text/html", url)
+
+    transport = CutShort()
+    assert PageResolver(transport, FixedClock()).resolve("@mkbhd").id == MKBHD
+    assert transport.stops == [PAGE_START, None]
+
+
+def test_the_transport_can_stop_reading_early():
+    sent = []
+
+    def endless():
+        for _ in range(500):
+            sent.append(1)
+            yield b"x" * 1000
+
+    transport = transport_with(lambda r: httpx.Response(200, content=endless()))
+    assert len(transport.get("https://www.youtube.com/big", stop_after=5000).content) == 5000
+    assert len(sent) == 5
 
 
 def test_a_network_failure_during_lookup_says_so():

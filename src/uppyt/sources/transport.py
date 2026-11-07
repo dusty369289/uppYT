@@ -46,7 +46,7 @@ class Response:
 
 
 class Transport(Protocol):
-    def get(self, url: str) -> Response: ...
+    def get(self, url: str, *, stop_after: int | None = None) -> Response: ...
 
 
 def is_allowed(url: str, hosts: frozenset[str] = ALLOWED_HOSTS) -> bool:
@@ -74,7 +74,8 @@ class HttpTransport:
         if wait > 0:
             time.sleep(wait)
 
-    def get(self, url: str) -> Response:
+    def get(self, url: str, *, stop_after: int | None = None) -> Response:
+        """With stop_after, stops reading once it has that many bytes, for when only the start of a page matters."""
         for _ in range(MAX_REDIRECTS + 1):
             if not is_allowed(url):
                 raise TransportError(f"uppYT only fetches from YouTube, so it won't open {urlsplit(url).hostname}.")
@@ -86,7 +87,7 @@ class HttpTransport:
                     if reply.is_redirect and "location" in reply.headers:
                         url = urljoin(url, reply.headers["location"])
                         continue
-                    content = self._read_limited(reply)
+                    content = self._read_limited(reply, stop_after)
                 finally:
                     reply.close()
             except httpx.HTTPError as error:
@@ -95,7 +96,7 @@ class HttpTransport:
         raise TransportError("YouTube redirected too many times.")
 
     @staticmethod
-    def _read_limited(reply: httpx.Response) -> bytes:
+    def _read_limited(reply: httpx.Response, stop_after: int | None = None) -> bytes:
         chunks: list[bytes] = []
         size = 0
         for chunk in reply.iter_bytes():
@@ -103,6 +104,8 @@ class HttpTransport:
             if size > MAX_BYTES:
                 raise TransportError("YouTube sent more data than expected.")
             chunks.append(chunk)
+            if stop_after is not None and size >= stop_after:
+                break
         return b"".join(chunks)
 
     def close(self) -> None:

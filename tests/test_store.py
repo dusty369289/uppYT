@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import os
 import sqlite3
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
@@ -13,7 +16,7 @@ from uppyt.domain.models import Channel, FeedStatus, Priority, Subscription
 from uppyt.domain.settings import Settings
 from uppyt.sources.feeds import parse_feed
 from uppyt.store.catalogue import SCHEMA_VERSION, Catalogue, migrate
-from uppyt.store.files import atomic_write
+from uppyt.store.files import LockTimeout, atomic_write
 from uppyt.store.profiles import ProfileDirectory, ProfileError, ProfileStore
 
 
@@ -449,6 +452,51 @@ def test_requests_share_one_store_so_parallel_saves_all_land(tmp_path):
     with ThreadPoolExecutor(16) as pool:
         list(pool.map(lambda cid: directory.get("dusty").save_subscription(Subscription(cid)), ids))
     assert sorted(directory.get("dusty").subscriptions()) == ids
+
+
+SEPARATE_PROCESS = """
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+from uppyt.store.profiles import ProfileDirectory
+store = ProfileDirectory(Path(sys.argv[1])).get("dusty")
+for i in range(25):
+    store.mark_seen(f"p{sys.argv[2]}v{i}", datetime.now(UTC))
+"""
+
+
+def test_separate_processes_saving_lose_nothing(tmp_path):
+    """Like the web app and a command at the same moment. Each process has its own in-memory lock."""
+    directory = ProfileDirectory(tmp_path)
+    directory.create("dusty")
+    running = [subprocess.Popen([sys.executable, "-c", SEPARATE_PROCESS, str(tmp_path), str(n)]) for n in range(4)]
+    assert [process.wait(timeout=20) for process in running] == [0, 0, 0, 0]
+    assert len(directory.get("dusty").seen()) == 100
+
+
+def test_a_crashed_saver_cant_block_saving_for_ever(profile):
+    lock = profile.folder / ".saving"
+    lock.touch()
+    os.utime(lock, (0, 0))  # very old, as if left behind by a crash
+    profile.mark_seen("v", NOW)
+    assert "v" in profile.seen()
+    assert not lock.exists()
+
+
+def test_a_busy_profile_says_so_instead_of_hanging(profile, monkeypatch):
+    def busy(*_args, **_kwargs):
+        raise LockTimeout("x")
+
+    monkeypatch.setattr("uppyt.store.profiles.file_lock", busy)
+    with pytest.raises(ProfileError, match="busy saving"):
+        profile.mark_seen("v", NOW)
+
+
+def test_the_lock_is_gone_after_a_failed_save(profile, monkeypatch):
+    monkeypatch.setattr("uppyt.store.profiles.atomic_write", lambda *_a: (_ for _ in ()).throw(OSError("disk full")))
+    with pytest.raises(OSError, match="disk full"):
+        profile.mark_seen("v", NOW)
+    assert not (profile.folder / ".saving").exists()
 
 
 def test_the_channel_list_is_only_parsed_again_when_it_changes(profile, monkeypatch):

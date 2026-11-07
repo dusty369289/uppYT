@@ -39,9 +39,11 @@ class FakeTransport:
     def __init__(self, routes: dict[str, Response | Exception | list] | None = None):
         self.routes = dict(routes or {})
         self.requests: list[str] = []
+        self.stops: list[int | None] = []
 
-    def get(self, url: str) -> Response:
+    def get(self, url: str, *, stop_after: int | None = None) -> Response:
         self.requests.append(url)
+        self.stops.append(stop_after)
         answer = self.routes.get(url, Response(404, url=url))
         if isinstance(answer, list):
             answer = answer.pop(0) if len(answer) > 1 else answer[0]

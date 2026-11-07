@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import re
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -21,7 +23,7 @@ from ..domain.errors import UserError
 from ..domain.feeds import TOGGLES, FeedKind
 from ..domain.models import CHANNEL_ID, Priority, Subscription, normalise_tags
 from ..domain.settings import Settings
-from .files import atomic_write
+from .files import LockTimeout, atomic_write, file_lock
 
 PROFILE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _-]{0,39}$")
 
@@ -58,6 +60,16 @@ class ProfileStore:
     def _seen_path(self) -> Path:
         return self.folder / "seen.json"
 
+    @contextmanager
+    def _saving(self) -> Iterator[None]:
+        """One save at a time: threads through the lock, and other processes through a lock file."""
+        with self._lock:
+            try:
+                with file_lock(self.folder / ".saving"):
+                    yield
+            except LockTimeout:
+                raise ProfileError(f"Another uppYT is busy saving to {self.folder}. Try again in a moment.") from None
+
     # Channels
 
     def _channels_document(self) -> tomlkit.TOMLDocument:
@@ -85,7 +97,7 @@ class ProfileStore:
             return dict(self._parsed[1])
 
     def save_subscription(self, subscription: Subscription, *, note: str | None = None) -> None:
-        with self._lock:
+        with self._saving():
             document = self._channels_document()
             if "channels" not in document:
                 document.add("channels", tomlkit.table(is_super_table=True))
@@ -107,7 +119,7 @@ class ProfileStore:
             atomic_write(self._channels_path, tomlkit.dumps(document))
 
     def remove_subscription(self, channel_id: str) -> bool:
-        with self._lock:
+        with self._saving():
             document = self._channels_document()
             channels = document.get("channels", {})
             if channel_id not in channels:
@@ -132,7 +144,7 @@ class ProfileStore:
                 raise ProfileError(f"{self._settings_path} has a value uppYT can't use: {error}") from error
 
     def save_settings(self, settings: Settings) -> None:
-        with self._lock:
+        with self._saving():
             atomic_write(self._settings_path, tomlkit.dumps(settings.model_dump(exclude_defaults=True)))
 
     # Seen
@@ -151,13 +163,13 @@ class ProfileStore:
         atomic_write(self._seen_path, json.dumps({v: w.isoformat() for v, w in seen.items()}, indent=0))
 
     def mark_seen(self, video_id: str, when: datetime) -> None:
-        with self._lock:
+        with self._saving():
             seen = self.seen()
             seen.setdefault(video_id, when)
             self._write_seen(seen)
 
     def unmark_seen(self, video_id: str) -> bool:
-        with self._lock:
+        with self._saving():
             seen = self.seen()
             if video_id not in seen:
                 return False

@@ -4,7 +4,42 @@ from __future__ import annotations
 
 import os
 import tempfile
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+
+LOCK_WAIT = 10.0  # seconds to wait for another uppYT to finish saving
+LOCK_STALE = 30.0  # a lock this old belongs to a process that crashed
+
+
+class LockTimeout(Exception):
+    pass
+
+
+@contextmanager
+def file_lock(path: Path, *, wait: float = LOCK_WAIT, stale: float = LOCK_STALE) -> Iterator[None]:
+    """Keeps separate processes, like the web app and a command, from saving over each other. Creating a file either
+    happens or doesn't, on every platform, which makes it a lock that needs nothing else."""
+    deadline = time.monotonic() + wait
+    while True:
+        try:
+            os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            break
+        except FileExistsError:
+            try:
+                if time.time() - path.stat().st_mtime > stale:
+                    path.unlink(missing_ok=True)
+                    continue
+            except FileNotFoundError:
+                continue
+            if time.monotonic() > deadline:
+                raise LockTimeout(str(path)) from None
+            time.sleep(0.01)
+    try:
+        yield
+    finally:
+        path.unlink(missing_ok=True)
 
 
 def atomic_write(path: Path, data: str | bytes) -> None:

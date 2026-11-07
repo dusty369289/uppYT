@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import pytest
 
 from uppyt.domain.feeds import FEED_CAP, FeedKind, feed_url
-from uppyt.sources.channels import PageResolver
+from uppyt.sources.channels import PAGE_START, PageResolver, channel_page_url, parse_channel_page
 from uppyt.sources.feeds import FeedClient, Found, parse_feed
 from uppyt.sources.transport import HttpTransport
 
@@ -56,6 +56,14 @@ def test_the_channel_feed_tells_shorts_apart(feeds):
     answer = feeds.fetch(MKBHD, FeedKind.ALL)
     assert isinstance(answer, Found)
     assert any(not e.is_short for e in answer.feed.entries)
+
+
+@pytest.mark.parametrize("link", ["@mkbhd", "https://www.youtube.com/c/mkbhd"])
+def test_the_start_of_a_page_is_enough(transport, link):
+    """If this fails, YouTube's page changed shape, and lookups will quietly fall back to reading all 3 MB."""
+    reply = transport.get(channel_page_url(link), stop_after=PAGE_START)
+    assert len(reply.content) < 2 * PAGE_START
+    assert parse_channel_page(reply.text).id == MKBHD
 
 
 def test_avatars_download_at_the_size_asked_for(transport):

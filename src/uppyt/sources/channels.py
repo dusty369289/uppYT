@@ -12,9 +12,11 @@ from urllib.parse import urlsplit
 
 from ..domain.errors import UserError
 from ..domain.models import CHANNEL_ID
-from .transport import IMAGE_HOSTS, Transport, TransportError, is_allowed
+from .transport import IMAGE_HOSTS, Response, Transport, TransportError, is_allowed
 
 REMEMBER_FOR = timedelta(minutes=15)
+# A channel page is about 3 MB. Its ID, name, picture and, on @name links, its handle all sit in the first 830 KB.
+PAGE_START = 1_200_000
 AVATAR_SIZE = 176  # twice the largest it's ever shown
 YOUTUBE_HOSTS = frozenset({"www.youtube.com", "youtube.com", "m.youtube.com"})
 _CANONICAL = re.compile(r'<link rel="canonical" href="https://www\.youtube\.com/channel/(UC[\w-]{22})"')
@@ -41,7 +43,7 @@ class ResolvedChannel:
 
 
 class ChannelResolver(Protocol):
-    def resolve(self, text: str) -> ResolvedChannel: ...
+    def resolve(self, text: str, *, need_handle: bool = True) -> ResolvedChannel: ...
 
 
 HOW_TO = "Paste a channel link such as https://www.youtube.com/@name, or an @name on its own."
@@ -103,14 +105,29 @@ class PageResolver:
         self._clock = clock
         self._known: dict[str, tuple[datetime, ResolvedChannel]] = {}
 
-    def resolve(self, text: str) -> ResolvedChannel:
+    def resolve(self, text: str, *, need_handle: bool = True) -> ResolvedChannel:
+        """Reads only as much of the page as it needs. /channel/ links only name their handle near the very end, so
+        that's a full read, unless the handle doesn't matter, as when importing a long list."""
         url = channel_page_url(text)
         now = self._clock()
         known = self._known.get(url)
         if known and now - known[0] < REMEMBER_FOR:
             return known[1]
+        start_is_enough = "/@" in url or not need_handle
+        reply = self._fetch(url, PAGE_START if start_is_enough else None)
         try:
-            reply = self._transport.get(url)
+            channel = parse_channel_page(reply.text)
+        except ChannelLookupError:
+            if not start_is_enough:
+                raise
+            channel = parse_channel_page(self._fetch(url, None).text)  # in case YouTube's page changes shape
+        self._known[url] = (now, channel)
+        self._known[channel_page_url(channel.id)] = (now, channel)
+        return channel
+
+    def _fetch(self, url: str, stop_after: int | None) -> Response:
+        try:
+            reply = self._transport.get(url, stop_after=stop_after)
         except TransportError as error:
             raise ChannelLookupError(str(error)) from error
         if reply.status == 404:
@@ -119,7 +136,4 @@ class PageResolver:
             raise ChannelLookupError("YouTube showed its cookie consent page instead of the channel. Try again later.")
         if reply.status != 200:
             raise ChannelLookupError(f"YouTube answered {reply.status} for that channel. Try again in a moment.")
-        channel = parse_channel_page(reply.text)
-        self._known[url] = (now, channel)
-        self._known[channel_page_url(channel.id)] = (now, channel)
-        return channel
+        return reply
