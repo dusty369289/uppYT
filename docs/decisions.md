@@ -160,3 +160,4 @@ Earlier entries call the channel feed reliable and a bad spell about 40 seconds.
 - **A 404 only counts towards "absent" when the channel feed answers.** Before this, three checks in an outage marked working feeds absent for a day. That needed its own count, `missing_in_a_row`, because outage failures still need backoff.
 - **During an outage a check costs one request**, and any failing feed is retried as soon as one answers. This is worked out from stored state, so `uppyt refresh` from cron behaves the same.
 - **No other host serves these feeds.** 12 other Google and YouTube hostnames were tried. `youtube.com` and `m.youtube.com` do, but they're probably the same service.
+- **No fallback to channel pages during an outage.** The owner's decision: RSS only, with the channel page just for checking a channel exists when it's added. If feeds are down, uppYT waits and says so.
