@@ -137,8 +137,6 @@ def test_page(page_info, scenario, width, mode, browser, scenes, request):
     if response.status >= 400:
         problems.append(f"The page answered {response.status}")
     page.evaluate(WAIT_FOR_IMAGES)
-    if scenario != "import_running":  # that page keeps polling, so the network never settles
-        page.wait_for_load_state("networkidle")
     problems += machine_problems(page, watcher, touch)
 
     report.SHOTS.mkdir(parents=True, exist_ok=True)

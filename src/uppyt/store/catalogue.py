@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import DateTime, TypeDecorator, create_engine, event
+from sqlalchemy import DateTime, TypeDecorator, create_engine, event, func
+from sqlalchemy import select as sa_select
 from sqlalchemy.engine import Engine
 from sqlmodel import Column, Field, Session, SQLModel, col, select
 
@@ -293,8 +294,13 @@ class Catalogue:
     def _keep_entries(
         session: Session, kind: FeedKind, entries: Iterable[FeedEntry], known: set[str], now: datetime
     ) -> None:
-        for entry in entries:
-            video = session.get(VideoRow, entry.video_id)
+        items = list(entries)
+        existing = {
+            video.id: video
+            for video in session.exec(select(VideoRow).where(col(VideoRow.id).in_([e.video_id for e in items])))
+        }
+        for entry in items:
+            video = existing.get(entry.video_id)
             if video is None:
                 session.add(
                     VideoRow(
@@ -354,60 +360,47 @@ class Catalogue:
         self, channel_ids: Iterable[str], since: datetime | None = None
     ) -> list[tuple[Video, frozenset[FeedKind]]]:
         """Videos with every feed they've been seen in, which is what decides whether a person's toggles show them."""
-        wanted = list(channel_ids)
-        with Session(self._engine) as session:
-            query = select(VideoRow).where(col(VideoRow.channel_id).in_(wanted))
-            if since is not None:
-                query = query.where(col(VideoRow.published_at) >= since)
-            rows = session.exec(query).all()
-            memberships: dict[str, set[FeedKind]] = {}
-            feeds = session.exec(
-                select(VideoFeedRow.video_id, VideoFeedRow.kind)
-                .join(VideoRow, col(VideoRow.id) == col(VideoFeedRow.video_id))
-                .where(col(VideoRow.channel_id).in_(wanted))
-            ).all()
-            for video_id, kind in feeds:
-                memberships.setdefault(video_id, set()).add(FeedKind(kind))
-            result = []
-            for r in rows:
-                kinds = frozenset(memberships.get(r.id, ()))
-                result.append(
-                    (
-                        Video(
-                            id=r.id,
-                            channel_id=r.channel_id,
-                            title=r.title,
-                            published_at=r.published_at,
-                            kind=classify(kinds),
-                            members_only=FeedKind.MEMBERS in kinds,
-                            views=r.views,
-                        ),
-                        kinds,
-                    )
-                )
-            return result
+        conditions = [col(VideoRow.channel_id).in_(list(channel_ids))]
+        if since is not None:
+            conditions.append(col(VideoRow.published_at) >= since)
+        return self._select_videos(conditions)
 
     def videos_by_id(self, ids: Iterable[str]) -> dict[str, Video]:
-        wanted = list(ids)
+        found = self._select_videos([col(VideoRow.id).in_(list(ids))])
+        return {video.id: video for video, _ in found}
+
+    def _select_videos(self, conditions: list) -> list[tuple[Video, frozenset[FeedKind]]]:
+        """Columns and one aggregate rather than full rows: the board reads thousands of these on every page load."""
+        query = (
+            sa_select(
+                VideoRow.id,
+                VideoRow.channel_id,
+                VideoRow.title,
+                VideoRow.published_at,
+                VideoRow.views,
+                func.group_concat(VideoFeedRow.kind),
+            )
+            .select_from(VideoRow)
+            .outerjoin(VideoFeedRow, col(VideoFeedRow.video_id) == col(VideoRow.id))
+            .where(*conditions)
+            .group_by(col(VideoRow.id))
+        )
         with Session(self._engine) as session:
-            rows = session.exec(select(VideoRow).where(col(VideoRow.id).in_(wanted))).all()
-            memberships: dict[str, set[FeedKind]] = {}
-            for video_id, kind in session.exec(
-                select(VideoFeedRow.video_id, VideoFeedRow.kind).where(col(VideoFeedRow.video_id).in_(wanted))
-            ).all():
-                memberships.setdefault(video_id, set()).add(FeedKind(kind))
-            return {
-                r.id: Video(
-                    id=r.id,
-                    channel_id=r.channel_id,
-                    title=r.title,
-                    published_at=r.published_at,
-                    kind=classify(frozenset(memberships.get(r.id, ()))),
-                    members_only=FeedKind.MEMBERS in memberships.get(r.id, ()),
-                    views=r.views,
-                )
-                for r in rows
-            }
+            rows = session.execute(query).all()
+        result = []
+        for video_id, channel_id, title, published_at, views, feed_names in rows:
+            kinds = frozenset(FeedKind(name) for name in feed_names.split(",")) if feed_names else frozenset()
+            video = Video(
+                id=video_id,
+                channel_id=channel_id,
+                title=title,
+                published_at=published_at,
+                kind=classify(kinds),
+                members_only=FeedKind.MEMBERS in kinds,
+                views=views,
+            )
+            result.append((video, kinds))
+        return result
 
     # The refresh lock: a lease in the database, so it works everywhere and a crash can't hold it for ever
 
