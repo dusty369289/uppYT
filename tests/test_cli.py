@@ -158,6 +158,13 @@ def test_the_board_lists_and_marks_seen(cli):
     assert "Nothing to undo" in cli("seen", "--undo")
 
 
+def test_undoing_a_video_that_isnt_seen_says_so(cli):
+    cli("channels", "add", "@veritasium")
+    video_id = json.loads(cli("board", "--json", "--limit", "1"))["cards"][0]["video"]["id"]
+    assert f"{video_id} isn't marked as seen." in cli("seen", "--undo", video_id, code=1)
+    assert "nosuchvideo isn't marked as seen." in cli("seen", "--undo", "nosuchvideo", code=1)
+
+
 def test_board_filters(cli):
     cli("channels", "add", "@mkbhd", "--feeds", "videos,shorts", "--tags", "tech")
     cli("channels", "add", "@veritasium", "--tags", "science")

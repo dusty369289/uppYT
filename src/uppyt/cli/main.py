@@ -291,7 +291,12 @@ def seen(
     services = _session(ctx).app(profile).seen
     if undo:
         restored = services.undo(video_id)
-        typer.echo(f"Put {restored} back on the board." if restored else "Nothing to undo.")
+        if restored:
+            typer.echo(f"Put {restored} back on the board.")
+        elif video_id:
+            raise UserError(f"{video_id} isn't marked as seen.")
+        else:
+            typer.echo("Nothing to undo.")
     elif video_id:
         typer.echo(f"Marked {services.mark(video_id)} as seen. Undo with: uppyt seen --undo")
     elif list_seen:
