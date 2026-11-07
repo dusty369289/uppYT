@@ -1,21 +1,26 @@
 {% extends "base.html" %}
 {% block title %}Settings - uppYT{% endblock %}
+{# A field's description, and whether it's the one that was refused. After a refusal, fields show what was typed. #}
+{% macro about(field, invalid, hint="") -%}
+  {%- set ids = ([hint] if hint else []) + (["settings-problem"] if invalid == field else []) -%}
+  {%- if ids %} aria-describedby="{{ ids | join(' ') }}"{% endif %}{% if invalid == field %} aria-invalid="true"{% endif %}
+{%- endmacro %}
 {% block main %}
 <div class="page stack reading">
   <h1>Settings</h1>
-  {% if problem %}<p class="problem" role="alert">{{ problem }}</p>{% endif %}
+  {% if problem %}<p class="problem" id="settings-problem" role="alert">{{ problem }}</p>{% endif %}
   {% if saved %}<p role="status">Settings saved.</p>{% endif %}
   {% if message %}<p role="status">{{ message }}</p>{% endif %}
   <form class="stack" method="post" action="/settings">
     <div class="fields">
       <label class="label" for="window_days">Default window</label>
-      <div class="fields-value"><input class="input input--number" id="window_days" name="window_days" type="text" inputmode="numeric" value="{{ settings.window_days }}" aria-describedby="window_days-hint"><p class="hint" id="window_days-hint">Days back the board looks.</p></div>
+      <div class="fields-value"><input class="input input--number" id="window_days" name="window_days" type="text" inputmode="numeric" value="{{ typed.get('window_days', settings.window_days) }}"{{ about("window_days", invalid, "window_days-hint") }}><p class="hint" id="window_days-hint">Days back the board looks.</p></div>
       <label class="label" for="appearance">Appearance</label>
-      <div class="fields-value"><select class="select" id="appearance" name="appearance">
-        {% for value, label in (("system", "Follow this device"), ("dark", "Dark"), ("light", "Light")) %}<option value="{{ value }}" {% if settings.appearance == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      <div class="fields-value"><select class="select" id="appearance" name="appearance"{{ about("appearance", invalid) }}>
+        {% for value, label in (("system", "Follow this device"), ("dark", "Dark"), ("light", "Light")) %}<option value="{{ value }}" {% if typed.get("appearance", settings.appearance) == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
       </select></div>
       <label class="label" for="page_size">Cards per page</label>
-      <div class="fields-value"><input class="input input--number" id="page_size" name="page_size" type="text" inputmode="numeric" value="{{ settings.page_size }}"></div>
+      <div class="fields-value"><input class="input input--number" id="page_size" name="page_size" type="text" inputmode="numeric" value="{{ typed.get('page_size', settings.page_size) }}"{{ about("page_size", invalid) }}></div>
     </div>
     <div class="section stack">
       <h2>Ranking</h2>
@@ -23,10 +28,11 @@
       <div class="fields">
         {% for name, label in (("must_see", "Must-see"), ("high", "High"), ("normal", "Normal"), ("low", "Low")) %}
         <label class="label" for="hs-{{ name }}">{{ label }}</label>
-        <div class="fields-value"><input class="input input--number" id="hs-{{ name }}" name="head_starts.{{ name }}" type="text" inputmode="decimal" value="{{ '%g' | format(settings.head_starts | attr(name)) }}"></div>
+        {% set field = "head_starts." ~ name %}
+        <div class="fields-value"><input class="input input--number" id="hs-{{ name }}" name="{{ field }}" type="text" inputmode="decimal" value="{{ typed[field] if field in typed else '%g' | format(settings.head_starts | attr(name)) }}"{{ about(field, invalid) }}></div>
         {% endfor %}
         <label class="label" for="repeat_penalty_days">Repeat penalty</label>
-        <div class="fields-value"><input class="input input--number" id="repeat_penalty_days" name="repeat_penalty_days" type="text" inputmode="decimal" value="{{ '%g' | format(settings.repeat_penalty_days) }}" aria-describedby="repeat_penalty_days-hint"><p class="hint" id="repeat_penalty_days-hint">0 turns it off.</p></div>
+        <div class="fields-value"><input class="input input--number" id="repeat_penalty_days" name="repeat_penalty_days" type="text" inputmode="decimal" value="{{ typed.repeat_penalty_days if 'repeat_penalty_days' in typed else '%g' | format(settings.repeat_penalty_days) }}"{{ about("repeat_penalty_days", invalid, "repeat_penalty_days-hint") }}><p class="hint" id="repeat_penalty_days-hint">0 turns it off.</p></div>
       </div>
     </div>
     <div><button class="button" type="submit">Save settings</button></div>

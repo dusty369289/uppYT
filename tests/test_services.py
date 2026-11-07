@@ -6,7 +6,7 @@ from datetime import timedelta
 import pytest
 
 from tests.support import MKBHD, NOW, SECOND, FixedClock, feed_xml, no_sleep, world
-from uppyt.domain.errors import NotFound, UserError
+from uppyt.domain.errors import NotFound, SettingError, UserError
 from uppyt.domain.feeds import DEFAULT_ON, FeedKind, feed_url
 from uppyt.domain.models import Channel, FeedStatus, Priority, Subscription
 from uppyt.services.app import UppYT
@@ -649,6 +649,37 @@ def test_bad_settings_are_refused_and_nothing_changes(scene, changes, message):
     with pytest.raises(UserError, match=message):
         scene.app.settings.update(changes)
     assert scene.app.settings.get().window_days == 60
+
+
+@pytest.mark.parametrize(
+    ("changes", "field", "message"),
+    [
+        (
+            {"window_days": "abc"},
+            "window_days",
+            "Default window (window_days) has to be a whole number from 1 to 3650.",
+        ),
+        ({"window_days": 0}, "window_days", "Default window (window_days) has to be a whole number from 1 to 3650."),
+        ({"page_size": 3}, "page_size", "Cards per page (page_size) has to be a whole number from 6 to 500."),
+        (
+            {"head_starts.high": "x"},
+            "head_starts.high",
+            "High head start (head_starts.high) has to be a number from 0 to 3650.",
+        ),
+        (
+            {"repeat_penalty_days": -1},
+            "repeat_penalty_days",
+            "Repeat penalty (repeat_penalty_days) has to be a number from 0 to 3650.",
+        ),
+        ({"appearance": "purple"}, "appearance", "Appearance (appearance) has to be one of system, dark, light."),
+    ],
+)
+def test_a_bad_setting_is_named_the_way_people_see_it(scene, changes, field, message):
+    """It said 'window_days: Input should be a valid integer', in Pydantic's words, to people who'd typed in a form."""
+    with pytest.raises(SettingError) as raised:
+        scene.app.settings.update(changes)
+    assert str(raised.value) == message
+    assert raised.value.field == field
 
 
 # OPML and backups

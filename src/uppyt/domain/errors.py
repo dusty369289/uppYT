@@ -9,3 +9,11 @@ class UserError(Exception):
 
 class NotFound(UserError):
     pass
+
+
+class SettingError(UserError):
+    """A setting that can't take the value given. `field` is its name, like window_days or head_starts.high."""
+
+    def __init__(self, message: str, field: str):
+        super().__init__(message)
+        self.field = field

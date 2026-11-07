@@ -11,11 +11,11 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from ..domain.errors import NotFound, UserError
+from ..domain.errors import NotFound, SettingError, UserError
 from ..domain.feeds import CATALOGUE, DEFAULT_ON, SPECS, TOGGLES, FeedKind
 from ..domain.models import Channel, FeedStatus, Priority, Subscription, normalise_tags
 from ..domain.ranking import Candidate, HeadStartRanker, describe_age, in_window, window_for
-from ..domain.settings import MAX_WINDOW_DAYS, Settings
+from ..domain.settings import MAX_WINDOW_DAYS, Settings, setting_problem
 from ..ops import operation
 from ..sources.channels import ChannelLookupError
 from ..sources.feeds import Found, Missing
@@ -78,9 +78,8 @@ class SettingsService:
         try:
             settings = Settings.model_validate(data)
         except ValidationError as error:
-            first = error.errors()[0]
-            field = ".".join(str(part) for part in first["loc"])
-            raise UserError(f"{field}: {first['msg']}.") from error
+            field, message = setting_problem(error)
+            raise SettingError(message, field) from error
         self._store.save_settings(settings)
         return settings
 

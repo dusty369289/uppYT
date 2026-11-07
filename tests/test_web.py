@@ -406,6 +406,24 @@ def test_bad_settings_say_why(followed):
     assert followed.services().settings.get().window_days == 60
 
 
+def test_a_bad_setting_keeps_what_was_typed_and_marks_the_field(followed):
+    """Every value in the submit went back to what was saved, and the message used the internal name."""
+    data = {"window_days": "abc", "page_size": "12", "head_starts.high": "20", "appearance": "light"}
+    response = followed.post("/settings", data=data)
+    assert response.status_code == 400
+    assert "Default window (window_days) has to be a whole number" in unescape(response.text)
+    fields = described(response.text)
+    assert fields["window_days"]["value"] == "abc"
+    assert fields["page_size"]["value"] == "12"
+    assert fields["hs-high"]["value"] == "20"
+    assert '<option value="light" selected>' in response.text
+    assert fields["window_days"].get("aria-invalid") == "true"
+    assert "settings-problem" in fields["window_days"]["aria-describedby"].split()
+    assert "aria-invalid" not in fields["page_size"]
+    saved = followed.services().settings.get()
+    assert (saved.window_days, saved.page_size, saved.head_starts.high, saved.appearance) == (60, 48, 28, "system")
+
+
 def test_refresh_finds_new_videos(followed):
     followed.clock.advance(hours=2)
     followed.runtime.feeds._cache.clear()
