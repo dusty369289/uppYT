@@ -671,3 +671,10 @@ def test_a_single_field_problem_marks_the_field(site):
     add = described(site.post("/channels/lookup", data={"link": "https://evil.example/x"}).text)
     assert add["link"].get("aria-invalid") == "true"
     assert len(add["link"]["aria-describedby"].split()) == 2  # the hint and the problem
+
+
+@pytest.mark.parametrize("window", ["0", "-3", "4000"])
+def test_a_window_out_of_range_is_a_message(followed, window):
+    response = followed.get(f"/?window={window}")
+    assert response.status_code == 400
+    assert "between 1 and 3650 days" in response.text

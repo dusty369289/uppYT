@@ -15,7 +15,7 @@ from ..domain.errors import NotFound, SettingError, UserError
 from ..domain.feeds import CATALOGUE, DEFAULT_ON, SPECS, TOGGLES, FeedKind
 from ..domain.models import Channel, FeedStatus, Priority, Subscription, normalise_tags
 from ..domain.ranking import Candidate, HeadStartRanker, describe_age, in_window, window_for
-from ..domain.settings import MAX_WINDOW_DAYS, Settings, setting_problem
+from ..domain.settings import MAX_WINDOW_DAYS, Settings, setting_names, setting_problem
 from ..ops import operation
 from ..sources.channels import ChannelLookupError
 from ..sources.feeds import Found, Missing
@@ -48,6 +48,17 @@ def _check_window(days: int | None) -> None:
         raise UserError(f"A channel's window must be between 1 and {MAX_WINDOW_DAYS} days.")
 
 
+def _check_page(offset: int, limit: int | None) -> None:
+    if offset < 0:
+        raise UserError("The number to skip can't be negative.")
+    if limit is not None and limit < 1:
+        raise UserError("The number to show has to be at least 1.")
+
+
+def _no_such_setting(name: str) -> UserError:
+    return UserError(f"There's no setting called {name}. The settings are {', '.join(setting_names())}.")
+
+
 def _board_kind(video) -> FeedKind:
     """Which of the board's checkboxes a video answers to."""
     return FeedKind.MEMBERS if video.members_only else video.kind
@@ -71,9 +82,9 @@ class SettingsService:
             for parent in parents:
                 target = target.get(parent)
                 if not isinstance(target, dict):
-                    raise UserError(f"There's no setting called {name}.")
+                    raise _no_such_setting(name)
             if leaf not in target or isinstance(target[leaf], dict):
-                raise UserError(f"There's no setting called {name}.")
+                raise _no_such_setting(name)
             target[leaf] = value
         try:
             settings = Settings.model_validate(data)
@@ -99,6 +110,9 @@ class BoardService:
         offset: int = 0,
         limit: int | None = None,
     ) -> BoardView:
+        if window_days is not None and not 1 <= window_days <= MAX_WINDOW_DAYS:
+            raise UserError(f"The window must be between 1 and {MAX_WINDOW_DAYS} days.")
+        _check_page(offset, limit)
         now = self._runtime.clock()
         settings = self._store.settings()
         subscriptions = self._store.subscriptions()
@@ -432,6 +446,7 @@ class SeenService:
 
     @operation("seen.list", "List seen videos, most recent first")
     def list(self, *, offset: int = 0, limit: int = 50) -> SeenPage:
+        _check_page(offset, limit)
         seen = self._store.seen()
         now = self._runtime.clock()
         ordered = sorted(seen, key=lambda v: seen[v], reverse=True)

@@ -69,6 +69,18 @@ def setting_problem(error: ValidationError) -> tuple[str, str]:
     return name, f"{label}: {first['msg']}."
 
 
+def setting_names(model: type[BaseModel] = Settings, prefix: str = "") -> list[str]:
+    """Every name `settings set` takes, such as head_starts.high, read from the schema so it can't drift."""
+    names = []
+    for name, field in model.model_fields.items():
+        kind = field.annotation
+        if isinstance(kind, type) and issubclass(kind, BaseModel):
+            names += setting_names(kind, f"{prefix}{name}.")
+        else:
+            names.append(prefix + name)
+    return names
+
+
 WINDOW_CHOICES: tuple[tuple[int, str], ...] = (
     (7, "Last week"),
     (14, "Last 2 weeks"),

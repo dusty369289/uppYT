@@ -928,3 +928,26 @@ def test_two_channels_with_one_name_ask_which(scene):
         scene.app.store.save_subscription(Subscription(channel_id))
     with pytest.raises(UserError, match="More than one"):
         scene.app.channels.find("Same name")
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [{"window_days": 0}, {"window_days": -3}, {"window_days": 3651}, {"limit": 0}, {"limit": -1}, {"offset": -1}],
+)
+def test_the_board_refuses_nonsense_numbers(scene, arguments):
+    with pytest.raises(UserError):
+        scene.app.board.view(**arguments)
+
+
+@pytest.mark.parametrize("arguments", [{"limit": 0}, {"limit": -1}, {"offset": -1}])
+def test_the_seen_list_refuses_nonsense_numbers(scene, arguments):
+    with pytest.raises(UserError):
+        scene.app.seen.list(**arguments)
+
+
+@pytest.mark.parametrize("name", ["nonsense", "head_starts.urgent", "head_starts", "window_days.x"])
+def test_an_unknown_setting_lists_the_real_ones(scene, name):
+    with pytest.raises(UserError, match=r"window_days, head_starts\.low") as error:
+        scene.app.settings.update({name: 1})
+    assert "head_starts.must_see" in str(error.value)
+    assert "page_size" in str(error.value)
