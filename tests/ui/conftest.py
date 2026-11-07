@@ -8,6 +8,7 @@ import pytest
 from PIL import Image
 from playwright.sync_api import Page, sync_playwright
 
+from tests.harness.timing.meter import shared_setup
 from tests.ui.scenes import Scene, start_scene
 
 AXE = (Path(__file__).parent / "vendor" / "axe.min.js").read_text(encoding="utf-8")
@@ -48,7 +49,8 @@ def scenes(tmp_path_factory):
 
     def get(name: str) -> Scene:
         if name not in running:
-            running[name] = start_scene(name, tmp_path_factory.mktemp(name))
+            with shared_setup():  # started by one test, then reused by the rest
+                running[name] = start_scene(name, tmp_path_factory.mktemp(name))
         return running[name]
 
     yield get

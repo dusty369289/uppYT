@@ -8,7 +8,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from . import core
+from . import core, meter
 
 STORE = Path(__file__).parents[3] / ".test-review" / "timings.json"
 
@@ -94,7 +94,7 @@ class TimingPlugin:
 
     def pytest_runtest_logreport(self, report):
         self.reported.add(report.nodeid)
-        self.partial[report.nodeid] = self.partial.get(report.nodeid, 0.0) + report.duration
+        self.partial[report.nodeid] = self.partial.get(report.nodeid, 0.0) + meter.own_seconds(report)
         if report.failed:
             self.failed.add(report.nodeid)
         if report.when == "call" and report.passed:

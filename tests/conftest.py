@@ -7,6 +7,7 @@ import socket
 import pytest
 
 from tests.harness import failures
+from tests.harness.timing import meter
 from tests.harness.timing import plugin as timing
 from tests.harness.ui import report as ui_report
 
@@ -45,6 +46,7 @@ def pytest_cmdline_main(config):
 
 
 def pytest_configure(config):
+    config.pluginmanager.register(meter.SharedSetupMeter(), "uppyt-shared-setup")
     if not hasattr(config, "workerinput"):  # the main process, in parallel runs
         config.pluginmanager.register(timing.TimingPlugin(), "uppyt-timing")
         config.pluginmanager.register(failures.FailurePlugin(), "uppyt-failures")
