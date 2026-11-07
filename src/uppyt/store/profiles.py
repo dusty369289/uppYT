@@ -47,6 +47,7 @@ class ProfileStore:
         self.name = folder.name
         self._lock = threading.RLock()
         self._parsed: tuple[tuple[int, int, int], dict[str, Subscription]] | None = None
+        self._seen: tuple[tuple[int, int, int], dict[str, str], dict[str, datetime]] | None = None
 
     @property
     def _channels_path(self) -> Path:
@@ -150,14 +151,26 @@ class ProfileStore:
     # Seen
 
     def seen(self) -> dict[str, datetime]:
+        return dict(self._seen_now()[2])
+
+    def _seen_now(self) -> tuple[tuple[int, int, int] | None, dict[str, str], dict[str, datetime]]:
+        """The seen list is never pruned, so it's only read again if the file changed, the same as channels.toml. The
+        text of each time is kept too, so a save only adds or removes one entry and the rest stay as they were."""
         with self._lock:
             try:
-                raw = json.loads(self._seen_path.read_text(encoding="utf-8"))
+                info = self._seen_path.stat()
             except FileNotFoundError:
-                return {}
-            except ValueError as error:
-                raise ProfileError(f"{self._seen_path} can't be read: {error}") from error
-            return self._parse_seen(raw)
+                return None, {}, {}
+            stamp = (info.st_mtime_ns, info.st_size, info.st_ino)
+            if self._seen is None or self._seen[0] != stamp:
+                try:
+                    raw = json.loads(self._seen_path.read_text(encoding="utf-8"))
+                except FileNotFoundError:
+                    return None, {}, {}
+                except ValueError as error:
+                    raise ProfileError(f"{self._seen_path} can't be read: {error}") from error
+                self._seen = (stamp, raw, self._parse_seen(raw))  # stamped before reading, so a change re-reads
+            return self._seen
 
     def _parse_seen(self, raw: object) -> dict[str, datetime]:
         """Raises rather than skipping a bad entry, since the next mark would write the file back without it."""
@@ -168,22 +181,29 @@ class ProfileStore:
         except (TypeError, ValueError) as error:
             raise ProfileError(f"{self._seen_path} can't be read: {error}") from error
 
-    def _write_seen(self, seen: dict[str, datetime]) -> None:
-        atomic_write(self._seen_path, json.dumps({v: w.isoformat() for v, w in seen.items()}, indent=0))
+    def _write_seen(self, raw: dict[str, str], parsed: dict[str, datetime]) -> None:
+        atomic_write(self._seen_path, json.dumps(raw, indent=0))
+        info = self._seen_path.stat()  # under the save lock, so this is the file just written
+        self._seen = ((info.st_mtime_ns, info.st_size, info.st_ino), raw, parsed)
 
     def mark_seen(self, video_id: str, when: datetime) -> None:
         with self._saving():
-            seen = self.seen()
-            seen.setdefault(video_id, when)
-            self._write_seen(seen)
+            _, raw, parsed = self._seen_now()
+            if video_id in parsed:
+                return  # the first time is the one that counts
+            text = when.isoformat()
+            self._write_seen(
+                {**raw, video_id: text}, {**parsed, video_id: datetime.fromisoformat(text).astimezone(UTC)}
+            )
 
     def unmark_seen(self, video_id: str) -> bool:
         with self._saving():
-            seen = self.seen()
-            if video_id not in seen:
+            _, raw, parsed = self._seen_now()
+            if video_id not in parsed:
                 return False
-            del seen[video_id]
-            self._write_seen(seen)
+            raw, parsed = dict(raw), dict(parsed)  # copies: the cached ones stay as read until the write lands
+            del raw[video_id], parsed[video_id]
+            self._write_seen(raw, parsed)
             return True
 
 

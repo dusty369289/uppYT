@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import subprocess
@@ -8,6 +9,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import timedelta
+from types import SimpleNamespace
 
 import pytest
 from sqlmodel import SQLModel
@@ -687,6 +689,58 @@ def test_a_damaged_seen_list_says_which_file(profile, text):
         profile.seen()
     with pytest.raises(ProfileError, match=r"seen\.json"):
         profile.mark_seen("v", NOW)
+
+
+def test_the_seen_list_is_only_read_again_when_it_changes(profile, monkeypatch):
+    """It is never pruned, so reading it in full on every request, and twice per mark, kept getting slower."""
+    profile.mark_seen("abc", NOW)
+    first = profile.seen()
+
+    def unread(_text):
+        pytest.fail("read again with nothing changed by anyone else")
+
+    monkeypatch.setattr("uppyt.store.profiles.json", SimpleNamespace(loads=unread, dumps=json.dumps))
+    assert profile.seen() == first
+    profile.mark_seen("def", LATER)
+    assert profile.unmark_seen("abc")
+    assert profile.seen() == {"def": LATER}
+
+
+def test_a_hand_edit_to_the_seen_list_is_noticed_straight_away(profile):
+    profile.mark_seen("abc", NOW)
+    profile.seen()
+    path = profile.folder / "seen.json"
+    path.write_text(path.read_text().replace("abc", "xyz"))
+    assert profile.seen() == {"xyz": NOW}
+
+
+def test_a_mark_from_another_uppyt_is_seen(tmp_path):
+    """The web app and the terminal app each have their own store for the same folder."""
+    folder = tmp_path / "dusty"
+    folder.mkdir()
+    web, terminal = ProfileStore(folder), ProfileStore(folder)
+    web.mark_seen("abc", NOW)
+    assert terminal.seen() == {"abc": NOW}
+    terminal.mark_seen("def", LATER)
+    assert web.seen() == {"abc": NOW, "def": LATER}
+    assert web.unmark_seen("def")
+    assert terminal.seen() == {"abc": NOW}
+
+
+def test_marking_and_undoing_leaves_the_seen_file_as_it_was(profile):
+    for number in range(5):
+        profile.mark_seen(f"v{number}", NOW + timedelta(minutes=number))
+    path = profile.folder / "seen.json"
+    before = path.read_bytes()
+    profile.mark_seen("new", LATER)
+    profile.unmark_seen("new")
+    assert path.read_bytes() == before
+
+
+def test_changing_the_returned_seen_list_cant_change_the_store(profile):
+    profile.mark_seen("abc", NOW)
+    profile.seen().clear()
+    assert profile.seen() == {"abc": NOW}
 
 
 def test_profiles_keep_to_their_own_folders(tmp_path):

@@ -17,6 +17,7 @@ from uppyt.domain.feeds import FeedKind
 from uppyt.domain.models import Channel, Priority
 from uppyt.services.app import UppYT
 from uppyt.services.runtime import Paths, Runtime
+from uppyt.store.profiles import ProfileStore
 from uppyt.web.app import create_app
 
 pytestmark = pytest.mark.timeout(30)  # building this much history takes longer than a normal test
@@ -24,6 +25,7 @@ pytestmark = pytest.mark.timeout(30)  # building this much history takes longer 
 CHANNELS = 100
 VIDEOS_PER_CHANNEL = 50
 SEEN = 1000
+LONG_SEEN = 20_000
 
 
 @pytest.fixture(scope="module")
@@ -84,6 +86,22 @@ def test_marking_seen_stays_quick_with_a_long_seen_list(busy):
         app.seen.undo(video)
 
     assert best_of_three(mark_then_undo) < 0.75
+
+
+def test_a_years_long_seen_list_stays_quick(tmp_path):
+    """seen.json is never pruned. At 20,000 entries a mark and its undo once took about 90 ms, mostly re-reading."""
+    store = ProfileStore(tmp_path)
+    marked = {f"v{number:09d}xx": (NOW - timedelta(minutes=number)).isoformat() for number in range(LONG_SEEN)}
+    (tmp_path / "seen.json").write_text(json.dumps(marked, indent=0))
+    assert len(store.seen()) == LONG_SEEN
+
+    def mark_then_undo():
+        store.mark_seen("brandnew123", NOW)
+        store.seen()
+        store.unmark_seen("brandnew123")
+        store.seen()
+
+    assert best_of_three(mark_then_undo) < 0.5
 
 
 def test_the_channel_list_is_quick(busy):
