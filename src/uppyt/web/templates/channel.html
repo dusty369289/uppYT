@@ -12,6 +12,7 @@
     </div>
   </div>
   {% if problem %}<p class="problem" role="alert">{{ problem }}</p>{% endif %}
+  {% if done == "added" %}<p role="status">Now following {{ detail.channel.name }}.</p>{% elif done == "saved" %}<p role="status">Changes saved.</p>{% endif %}
   <form class="stack section" method="post" action="/channels/{{ detail.channel.id }}">
     <div class="fields">
       <label class="label" for="priority">Priority</label>

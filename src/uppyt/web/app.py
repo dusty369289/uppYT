@@ -371,7 +371,7 @@ def create_app(
         detail = app_services.channels.add(
             channel_id, priority=Priority.parse(priority), feeds=_kinds_from(feeds), tags=tags.split(",")
         )
-        return _see_other(f"/channels/{detail.channel.id}")
+        return _see_other(f"/channels/{detail.channel.id}?added=1")
 
     @implements("web", "channels.get")
     @page("/channels/{channel_id}", "Channel", ("populated", "long_titles", "failing_feed", "with_gap"))
@@ -379,7 +379,9 @@ def create_app(
     def channel_page(request: Request, channel_id: str):
         app_services = services(request)
         detail = app_services.channels.get(channel_id)
-        return render(request, "channel.html", {"profile": app_services, "detail": detail, "problem": None})
+        done = "added" if "added" in request.query_params else "saved" if "saved" in request.query_params else None
+        context = {"profile": app_services, "detail": detail, "problem": None, "done": done}
+        return render(request, "channel.html", context)
 
     @implements("web", "channels.set")
     @app.post("/channels/{channel_id}")
@@ -406,7 +408,7 @@ def create_app(
             detail = app_services.channels.get(channel_id)
             context = {"profile": app_services, "detail": detail, "problem": str(error)}
             return render(request, "channel.html", context, status=400)
-        return _see_other(f"/channels/{channel_id}")
+        return _see_other(f"/channels/{channel_id}?saved=1")
 
     @page("/channels/{channel_id}/remove", "Stop following", ("populated", "long_titles"))
     @app.get("/channels/{channel_id}/remove", response_class=HTMLResponse)

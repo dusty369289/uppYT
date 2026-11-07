@@ -258,7 +258,9 @@ def test_the_add_flow_previews_then_follows(site):
         "/channels",
         data={"channel_id": MKBHD, "priority": "must_see", "feeds": ["videos", "shorts"], "tags": "Tech, gadgets"},
     )
-    assert response.headers["location"] == f"/channels/{MKBHD}"
+    assert response.headers["location"] == f"/channels/{MKBHD}?added=1"
+    assert "Now following Marques Brownlee." in unescape(site.get(response.headers["location"]).text)
+    assert "Now following" not in site.get(f"/channels/{MKBHD}").text
     subscription = site.services().store.subscriptions()[MKBHD]
     assert subscription.priority is Priority.MUST_SEE
     assert subscription.feeds == {FeedKind.VIDEOS, FeedKind.SHORTS}
@@ -322,6 +324,9 @@ def test_saving_a_channel(followed):
         f"/channels/{SECOND}", data={"priority": "low", "feeds": ["videos"], "tags": "new", "window": "9"}
     )
     assert response.status_code == 303
+    assert response.headers["location"] == f"/channels/{SECOND}?saved=1"
+    assert "Changes saved." in followed.get(response.headers["location"]).text
+    assert "Changes saved." not in followed.get(f"/channels/{SECOND}").text
     subscription = followed.services().store.subscriptions()[SECOND]
     assert subscription.priority is Priority.LOW
     assert subscription.tags == ("new",)
