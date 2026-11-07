@@ -376,10 +376,17 @@ def test_every_settings_field_on_the_page_is_saved(followed):
     page = followed.get("/settings").text
     form = page.split('action="/settings"')[1].split("</form>")[0]
     names = set(re.findall(r'name="([^"]+)"', form))
-    assert names == {"window_days", "appearance", "page_size", "repeat_penalty_days",
-                     "head_starts.must_see", "head_starts.high", "head_starts.normal", "head_starts.low"}  # fmt: skip
-    data = {"window_days": "11", "appearance": "dark", "page_size": "12", "repeat_penalty_days": "3",
-            "head_starts.must_see": "50", "head_starts.high": "20", "head_starts.normal": "5", "head_starts.low": "1"}  # fmt: skip
+    data = {
+        "window_days": "11",
+        "appearance": "dark",
+        "page_size": "12",
+        "repeat_penalty_days": "3",
+        "head_starts.must_see": "50",
+        "head_starts.high": "20",
+        "head_starts.normal": "5",
+        "head_starts.low": "1",
+    }
+    assert names == set(data)
     assert followed.post("/settings", data=data).status_code == 200
     saved = followed.services().settings.get()
     assert (saved.window_days, saved.appearance, saved.page_size, saved.repeat_penalty_days) == (11, "dark", 12, 3)
