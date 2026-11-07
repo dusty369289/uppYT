@@ -12,7 +12,6 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Protocol
 
 from .models import Priority, Subscription, Video
 from .settings import MAX_WINDOW_DAYS, Settings
@@ -29,10 +28,6 @@ class Ranked:
     candidate: Candidate
     key: float  # seconds. Plain numbers, because a large penalty can reach dates a datetime can't hold
     repeats: int  # newer candidates from the same channel
-
-
-class Ranker(Protocol):
-    def rank(self, candidates: Iterable[Candidate]) -> list[Ranked]: ...
 
 
 @dataclass(frozen=True)

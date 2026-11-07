@@ -30,9 +30,6 @@ class Scene:
         self.runtime.create_profile(name)
         return UppYT(self.runtime, self.runtime.profile(name))
 
-    def titles(self, app=None, **kwargs):
-        return [c.video.title for c in (app or self.app).board.view(**kwargs).cards]
-
 
 @pytest.fixture
 def scene(tmp_path):
