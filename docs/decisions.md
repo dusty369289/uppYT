@@ -167,7 +167,7 @@ Earlier entries call the channel feed reliable and a bad spell about 40 seconds.
 - **`--profile` works after a command too** (`uppyt board --profile NAME`), since the README and the error both led people there and it failed. `UPPYT_PROFILE` stays on the root option only, so it can't override a `--profile` that was typed.
 - **Out-of-range numbers are refused, not quietly changed.** A board window outside 1 to 3650 days, a limit under 1 or a negative offset is an error on every surface. Before, a window of 0 silently became the default and a negative offset showed a false "Nothing unseen".
 - **`youtu.be` links get the video message, but are still never fetched.** It's kept out of the hosts uppYT will request, so RSS only is unchanged.
-- **A taken port is checked before printing "running"**, so no browser opens on whatever else holds it.
+- **A taken port is checked before printing "running"**, so no browser opens on whatever else holds it. This covers plain IPv4 addresses (the default 127.0.0.1, and 0.0.0.0). A name like `localhost` or an IPv6 address is left to uvicorn, so a taken port there still prints "running" and opens the browser before uvicorn fails.
 
 ## 2026-11-07: whole-app review
 
@@ -179,7 +179,7 @@ Nine reviewers covered correctness, web UX, CSS, the terminal app, the CLI, secu
 - **seen.json is read again only when it changes,** like channels.toml, and a damaged one names the file.
 - **Web:** focus comes back after Seen, Undo, Show more and Check now. The toast region stays in place, so screen readers announce it. A refused setting keeps what was typed. "Changes saved." and "Now following …" confirm. Hints are tied to their fields. Cards show a focus ring. Results dim while loading, using the existing `is-busy` rule.
 - **Terminal:** dialogs open with focus in their first field, so the first-run name prompt works. Errors from the UI thread become notices, not crashes. Tags show as plain text. The profile switcher can be cancelled once a profile is open. If no browser opens, the link is shown. A confirm dialog starts on Cancel.
-- **CLI:** `--profile` works before or after the subcommand. Out-of-range numbers are refused. Errors print one sentence, not a traceback. A taken port is checked before anything prints, and uvicorn still binds as before. `status` uses singulars.
+- **CLI:** `--profile` works before or after the subcommand. Out-of-range numbers are refused. Errors print one sentence, not a traceback. A taken port is checked before anything prints, for IPv4 addresses only (see "review fixes" above), and uvicorn still binds as before. `status` uses singulars.
 - **Docs:** the cron example uses the full path, `data/backups/` is listed, and `.dockerignore` leaves out test output.
 - **Not done:** a members-only board test waits for a real recording, since fixtures must be real. The 'Everything' window stays in SQLModel: the default board takes about 60 ms. The 30 s limits on the entrypoint and performance tests are kept: they start real programs or build catalogues of thousands, and that work isn't a hang.
 
