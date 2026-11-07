@@ -224,6 +224,19 @@ def test_keyboard_focus_on_a_card_doesnt_hide_its_words(board):
     assert opacity(cards(page).first.locator(".card__words")) == "1"
 
 
+def test_tabbing_to_a_card_draws_a_visible_ring(board):
+    """The card clipped the ring drawn outside its link, so outlineStyle said solid while nothing showed."""
+    page, _, _ = board
+    page.mouse.move(0, 0)
+    card = cards(page).first
+    before = card.screenshot(animations="disabled")
+    page.get_by_label("Tag").focus()
+    page.keyboard.press("Tab")
+    assert page.evaluate("document.activeElement.className") == "card__picture"
+    assert page.evaluate("document.activeElement.closest('.card') === document.querySelector('.card')")
+    assert card.screenshot(animations="disabled") != before, "the focused card looks exactly like the unfocused one"
+
+
 def test_tab_reaches_everything_in_a_sensible_order(board):
     page, _, _ = board
     page.keyboard.press("Tab")

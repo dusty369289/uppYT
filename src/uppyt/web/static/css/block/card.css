@@ -1,6 +1,7 @@
 /* A video on the board. The picture fills the card and the words sit on it, until hovering clears them away. */
 .card { position: relative; aspect-ratio: 16 / 9; overflow: hidden; min-width: 0; background: var(--surface); }
 .card__picture { position: absolute; inset: 0; display: block; }
+.card__picture:focus-visible { outline-offset: -2px; } /* the card clips anything drawn outside it */
 .card__picture img { width: 100%; height: 100%; object-fit: cover; }
 .card__words {
   position: absolute; inset: auto 0 0; padding: 2.5rem var(--s-3) .625rem; color: var(--picture-ink); pointer-events: none;
