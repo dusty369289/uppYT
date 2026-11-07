@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -90,6 +91,24 @@ def _safe_back(request: Request, fallback: str = "/") -> str:
     return fallback
 
 
+def _host_name(header: str) -> str:
+    """The name in a Host header, without the port. IPv6 keeps its brackets, as in `[::1]`."""
+    if header.startswith("["):
+        end = header.find("]")
+        return header[: end + 1] if end != -1 else header
+    return header.partition(":")[0]
+
+
+def _is_ip_literal(name: str) -> bool:
+    """DNS rebinding needs a domain name, so a Host that's a plain IP address can't be one of those attacks."""
+    text = name[1:-1] if name.startswith("[") and name.endswith("]") else name
+    try:
+        address = ipaddress.ip_address(text)
+    except ValueError:
+        return False
+    return (address.version == 6) == name.startswith("[")
+
+
 def _see_other(url: str) -> RedirectResponse:
     return RedirectResponse(url, status_code=303)
 
@@ -173,8 +192,8 @@ def create_app(
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
-        host = (request.headers.get("host") or "").rsplit(":", 1)[0]
-        if allowed_hosts is not None and host not in allowed_hosts:
+        host = _host_name(request.headers.get("host") or "")
+        if allowed_hosts is not None and host not in allowed_hosts and not _is_ip_literal(host):
             return PlainTextResponse(
                 "That address isn't one uppYT answers on. See UPPYT_ALLOWED_HOSTS.", status_code=421
             )

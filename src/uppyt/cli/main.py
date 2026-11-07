@@ -150,11 +150,13 @@ def _run_terminal_app(session: Session) -> None:
     UppytApp(session.runtime, store).run()
 
 
-def _allowed_hosts(host: str) -> frozenset[str] | None:
-    """Which Host headers to answer, so a web page can't reach a local uppYT by pointing a domain name at it."""
+def _allowed_hosts(host: str) -> frozenset[str]:
+    """Which host names to answer, so a web page can't reach uppYT by pointing a domain name at it.
+
+    The web app answers any IP address as well, so a phone on the LAN can use this computer's address.
+    Other names, such as a LAN hostname or a proxy's, go in UPPYT_ALLOWED_HOSTS.
+    """
     extra = {h.strip() for h in os.environ.get("UPPYT_ALLOWED_HOSTS", "").split(",") if h.strip()}
-    if host in ("0.0.0.0", "::") and not extra:
-        return None  # listening everywhere: the person running it knows their own addresses
     return frozenset({"localhost", "127.0.0.1", "[::1]", host, *extra})
 
 

@@ -582,9 +582,49 @@ def test_the_listening_address_decides_the_allowed_hosts(monkeypatch):
 
     monkeypatch.delenv("UPPYT_ALLOWED_HOSTS", raising=False)
     assert "localhost" in _allowed_hosts("127.0.0.1")
-    assert _allowed_hosts("0.0.0.0") is None
+    for everywhere in ("0.0.0.0", "::"):
+        assert _allowed_hosts(everywhere) is not None, "listening everywhere must still check names"
+        assert "localhost" in _allowed_hosts(everywhere)
     monkeypatch.setenv("UPPYT_ALLOWED_HOSTS", "yt.example.com")
     assert "yt.example.com" in _allowed_hosts("0.0.0.0")
+
+
+@pytest.mark.parametrize(
+    ("host", "status"),
+    [
+        ("localhost:8770", 303),
+        ("127.0.0.1:8770", 303),
+        ("192.168.1.20:8770", 303),
+        ("10.0.0.5", 303),
+        ("[::1]:8770", 303),
+        ("[::1]", 303),
+        ("[fd00::5]:8770", 303),
+        ("evil.example", 421),
+        ("evil.example:8770", 421),
+        ("192.168.1.20.nip.io:8770", 421),
+        ("mybox.lan:8770", 421),
+        ("[not-an-ip]:8770", 421),
+        ("", 421),
+    ],
+)
+def test_listening_everywhere_answers_ip_addresses_but_not_unknown_names(tmp_path, monkeypatch, host, status):
+    """A rebinding attack needs a domain name, so any IP address is safe to answer. Names still need listing."""
+    from uppyt.cli.main import _allowed_hosts
+
+    monkeypatch.delenv("UPPYT_ALLOWED_HOSTS", raising=False)
+    site = Site(tmp_path, allowed_hosts=_allowed_hosts("0.0.0.0"))
+    assert site.client.get("/", headers={"host": host}).status_code == status
+    site.runtime.close()
+
+
+def test_a_lan_hostname_works_once_listed(tmp_path, monkeypatch):
+    from uppyt.cli.main import _allowed_hosts
+
+    monkeypatch.setenv("UPPYT_ALLOWED_HOSTS", "mybox.lan")
+    site = Site(tmp_path, allowed_hosts=_allowed_hosts("0.0.0.0"))
+    assert site.client.get("/", headers={"host": "mybox.lan:8770"}).status_code == 303
+    assert site.client.get("/", headers={"host": "evil.example"}).status_code == 421
+    site.runtime.close()
 
 
 def test_avatars_cant_escape_their_folder(followed):
