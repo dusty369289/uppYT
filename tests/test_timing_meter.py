@@ -87,7 +87,12 @@ def run(tmp_path, *extra) -> dict[str, float]:
 
 @pytest.fixture(scope="module")
 def took(tmp_path_factory) -> dict[str, float]:
-    """One serial run shared by the tests below. Each still checks its own part of it."""
+    """One serial run shared by the tests below. Each still checks its own part of it.
+
+    Shared per worker: in a full run this file lands on one worker and the run happens once, but run alone on
+    4 workers it can happen four times at once, so its timings carry more load. `--dist loadgroup` can't fix that:
+    pytest 9.2 ignores the group suffix xdist 3.8 writes to `item._nodeid`.
+    """
     return run(tmp_path_factory.mktemp("meter"))
 
 
