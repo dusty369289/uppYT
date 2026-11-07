@@ -4,6 +4,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
@@ -100,6 +101,70 @@ def test_a_failed_migration_changes_nothing(tmp_path, monkeypatch):
     connection = sqlite3.connect(path)
     assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert connection.execute("SELECT count(*) FROM sqlite_master WHERE name='half'").fetchone()[0] == 0
+
+
+def test_two_uppyts_starting_together_migrate_once(tmp_path, monkeypatch):
+    """The web app and a cron refresh starting at once on an old file both saw schema 1, and the second crashed."""
+    path = tmp_path / "data" / "catalogue.db"
+    path.parent.mkdir()
+    old = sqlite3.connect(path)
+    old.executescript(SCHEMA_1)
+    old.execute("PRAGMA journal_mode=WAL")
+    old.close()
+    barrier = threading.Barrier(2, timeout=5)
+    connect = sqlite3.connect
+
+    class BothLookFirst:
+        """Holds each uppYT at its first look at the version until the other has looked too."""
+
+        def __init__(self, *args, **kwargs):
+            self._connection = connect(*args, **kwargs)
+            self._looked = False
+
+        def execute(self, sql, *args):
+            cursor = self._connection.execute(sql, *args)
+            if sql.strip() == "PRAGMA user_version" and not self._looked:
+                self._looked = True
+                rows = cursor.fetchall()
+                barrier.wait()
+                return _Rows(rows)
+            return cursor
+
+        def __getattr__(self, name):
+            return getattr(self._connection, name)
+
+        def __setattr__(self, name, value):
+            if name.startswith("_"):
+                object.__setattr__(self, name, value)
+            else:
+                setattr(self._connection, name, value)
+
+        def __enter__(self):
+            return self._connection.__enter__()
+
+        def __exit__(self, *exc):
+            return self._connection.__exit__(*exc)
+
+    monkeypatch.setattr(sqlite3, "connect", BothLookFirst)
+    with ThreadPoolExecutor(2) as pool:
+        outcomes = [pool.submit(migrate, path, NOW) for _ in range(2)]
+        errors = [future.exception() for future in outcomes]
+    monkeypatch.undo()
+    assert errors == [None, None]
+    connection = sqlite3.connect(path)
+    assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
+    assert connection.execute("SELECT failures, missing_in_a_row FROM feed").fetchone() == (2, 0)
+    connection.close()
+    [backup] = (path.parent / "backups").iterdir()
+    assert backup.name.startswith("catalogue-v1-")
+
+
+class _Rows:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetchone(self):
+        return self._rows[0] if self._rows else None
 
 
 # Written out as uppYT shipped it, not taken from MIGRATIONS, so an edit there can't quietly change this old file too

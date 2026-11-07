@@ -138,21 +138,53 @@ def migrate(path: Path, now: datetime, backups: Path | None = None) -> None:
     """Bring a database up to date. A file from a newer uppYT is refused rather than risked."""
     path.parent.mkdir(parents=True, exist_ok=True)
     existed = path.exists()
-    connection = sqlite3.connect(path, timeout=5)
+    connection = sqlite3.connect(path, timeout=5, isolation_level=None)  # transactions are spelled out below
     try:
         connection.execute("PRAGMA journal_mode=WAL")  # remembered by the file, so only needs saying once
-        version = connection.execute("PRAGMA user_version").fetchone()[0]
-        if version > SCHEMA_VERSION:
-            raise RuntimeError(f"{path} was made by a newer uppYT (schema {version}, this one knows {SCHEMA_VERSION}).")
-        if version == SCHEMA_VERSION:
+        if _schema_version(connection, path) == SCHEMA_VERSION:
             return
-        if existed and version > 0:
-            stamp = now.strftime("%Y%m%dT%H%M%S")
-            backup_database(path, (backups or path.parent / "backups") / f"{path.stem}-v{version}-{stamp}.db")
-        for number, script in enumerate(MIGRATIONS[version:], start=version + 1):
-            connection.executescript(f"BEGIN;\n{script}\nPRAGMA user_version = {number};\nCOMMIT;")
+        # Two uppYTs can start at once (the web app and a cron refresh). The write lock comes before the version is
+        # read again, so only one of them migrates and the other finds the work done
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            version = _schema_version(connection, path)
+            if version == SCHEMA_VERSION:
+                connection.execute("ROLLBACK")
+                return
+            if existed and version > 0:  # a reader can copy the file while this holds the write lock, thanks to WAL
+                stamp = now.strftime("%Y%m%dT%H%M%S")
+                backup_database(path, (backups or path.parent / "backups") / f"{path.stem}-v{version}-{stamp}.db")
+            for script in MIGRATIONS[version:]:
+                for statement in _statements(script):  # executescript would commit first, giving up the lock
+                    connection.execute(statement)
+            connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            connection.execute("COMMIT")
+        except BaseException:
+            if connection.in_transaction:
+                connection.execute("ROLLBACK")
+            raise
     finally:
         connection.close()
+
+
+def _schema_version(connection: sqlite3.Connection, path: Path) -> int:
+    version = connection.execute("PRAGMA user_version").fetchone()[0]
+    if version > SCHEMA_VERSION:
+        raise RuntimeError(f"{path} was made by a newer uppYT (schema {version}, this one knows {SCHEMA_VERSION}).")
+    return version
+
+
+def _statements(script: str) -> list[str]:
+    """A migration script split into whole statements, so each can run inside one transaction."""
+    statements, pending = [], ""
+    for character in script:
+        pending += character
+        if character == ";" and sqlite3.complete_statement(pending):  # not a ; inside a string or comment
+            statements.append(pending.strip())
+            pending = ""
+    if pending.strip():
+        statements.append(pending.strip())  # left for SQLite to reject, rather than quietly skipped
+    return statements
 
 
 @dataclass(frozen=True)
