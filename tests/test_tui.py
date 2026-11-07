@@ -818,3 +818,20 @@ async def test_no_browser_shows_the_link_instead(scene):
         await pilot.press("o")
         await pilot.pause()
         assert any("https://www.youtube.com/watch?v=veri0000xxx" in m for m in notified(app))
+
+
+@pytest.mark.parametrize("tag", ["[/oops]", "[red]hi"])
+async def test_a_tag_with_markup_stays_literal_in_the_filter(scene, tag):
+    scene.services().channels.add("@veritasium", tags=[tag])
+    app = scene.app()
+    async with app.run_test(size=(100, 50)) as pilot:
+        await pilot.pause()
+        await pilot.press("slash")
+        await pilot.pause()
+        select = app.screen.query_one("#tag", Select)
+        select.focus()
+        await pilot.press("enter", "down", "enter")
+        await pilot.pause()
+        assert app.is_running
+        assert select.value == tag
+        assert tag in str(select.query_one("SelectCurrent Static").render())

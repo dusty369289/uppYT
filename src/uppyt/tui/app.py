@@ -15,6 +15,7 @@ from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
+from textual.content import Content
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Checkbox, DataTable, Footer, Input, Label, Select, Static
 
@@ -166,7 +167,7 @@ class FilterScreen(ModalScreen[dict | None]):
                 yield Checkbox(SPECS[kind].label, value=kind in app.kinds, id=f"kind-{kind.value}")
             yield Label("Tag", classes="field-label")
             yield Select(
-                [("All tags", ""), *[(t, t) for t in tags]],
+                [("All tags", ""), *[(Content(t), t) for t in tags]],  # tags are typed by people: no markup
                 value=app.tag if app.tag in tags else "",
                 allow_blank=False,
                 id="tag",
