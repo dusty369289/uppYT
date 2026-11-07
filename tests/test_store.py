@@ -102,6 +102,74 @@ def test_a_failed_migration_changes_nothing(tmp_path, monkeypatch):
     assert connection.execute("SELECT count(*) FROM sqlite_master WHERE name='half'").fetchone()[0] == 0
 
 
+# Written out as uppYT shipped it, not taken from MIGRATIONS, so an edit there can't quietly change this old file too
+SCHEMA_1 = """
+CREATE TABLE channel (
+    id VARCHAR NOT NULL PRIMARY KEY, name VARCHAR NOT NULL, handle VARCHAR, avatar_file VARCHAR,
+    added_at DATETIME NOT NULL);
+CREATE TABLE feed (
+    channel_id VARCHAR NOT NULL, kind VARCHAR NOT NULL, status VARCHAR NOT NULL, failures INTEGER NOT NULL,
+    last_checked_at DATETIME, last_success_at DATETIME, next_check_at DATETIME, history_from DATETIME,
+    history_complete BOOLEAN NOT NULL, PRIMARY KEY (channel_id, kind));
+CREATE TABLE feed_gap (
+    id INTEGER NOT NULL PRIMARY KEY, channel_id VARCHAR NOT NULL, kind VARCHAR NOT NULL, after DATETIME,
+    before DATETIME, noticed_at DATETIME NOT NULL);
+CREATE TABLE video (
+    id VARCHAR NOT NULL PRIMARY KEY, channel_id VARCHAR NOT NULL, title VARCHAR NOT NULL,
+    published_at DATETIME NOT NULL, views INTEGER, first_seen_at DATETIME NOT NULL);
+CREATE INDEX ix_video_channel_id ON video (channel_id);
+CREATE INDEX ix_video_published_at ON video (published_at);
+CREATE TABLE video_feed (video_id VARCHAR NOT NULL, kind VARCHAR NOT NULL, PRIMARY KEY (video_id, kind));
+CREATE TABLE meta (key VARCHAR NOT NULL PRIMARY KEY, value VARCHAR NOT NULL);
+INSERT INTO channel VALUES ('UCBJycsmduvYEL83R_U4JriQ', 'Marques Brownlee', '@mkbhd', NULL,
+    '2026-10-01 09:00:00.000000');
+INSERT INTO feed VALUES ('UCBJycsmduvYEL83R_U4JriQ', 'videos', 'failing', 2, '2026-11-06 20:00:00.000000',
+    '2026-11-06 18:00:00.000000', '2026-11-06 20:05:00.000000', '2026-09-01 12:00:00.000000', 0);
+INSERT INTO feed_gap VALUES (1, 'UCBJycsmduvYEL83R_U4JriQ', 'videos', '2026-10-01 00:00:00.000000',
+    '2026-10-02 00:00:00.000000', '2026-10-03 00:00:00.000000');
+INSERT INTO video VALUES ('abcdefghijk', 'UCBJycsmduvYEL83R_U4JriQ', 'An old upload', '2026-11-05 15:00:00.000000',
+    1234, '2026-11-05 16:00:00.000000');
+INSERT INTO video_feed VALUES ('abcdefghijk', 'videos');
+INSERT INTO meta VALUES ('keep', 'me');
+PRAGMA user_version = 1;
+"""
+
+
+def test_a_schema_1_database_keeps_its_history_when_migrated(tmp_path):
+    """The one real migration so far, run on a file shaped like one a person has had since the first release."""
+    path = tmp_path / "data" / "catalogue.db"
+    path.parent.mkdir()
+    old = sqlite3.connect(path)
+    old.executescript(SCHEMA_1)
+    old.close()
+    catalogue = Catalogue(path, NOW)
+    try:
+        state = catalogue.feed_states([MKBHD])[(MKBHD, FeedKind.VIDEOS)]
+        assert state.status is FeedStatus.FAILING
+        assert state.failures == 2
+        assert state.last_success_at == NOW - timedelta(hours=3)
+        assert state.history_from is not None and state.gaps == 1
+        assert catalogue.channels([MKBHD])[MKBHD].handle == "@mkbhd"
+        [(video, kinds)] = catalogue.videos([MKBHD])
+        assert (video.id, video.title, video.views, kinds) == ("abcdefghijk", "An old upload", 1234, {FeedKind.VIDEOS})
+        # The new column starts at zero, so the next 404 is the first in a row
+        assert catalogue.record_missing(MKBHD, FeedKind.VIDEOS, NOW, timedelta(hours=1)) is FeedStatus.FAILING
+    finally:
+        catalogue.close()
+    connection = sqlite3.connect(path)
+    assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
+    assert connection.execute("SELECT missing_in_a_row FROM feed").fetchone() == (1,)
+    assert connection.execute("SELECT value FROM meta WHERE key='keep'").fetchone() == ("me",)
+    connection.close()
+    [backup] = (path.parent / "backups").iterdir()
+    assert backup.name.startswith("catalogue-v1-")
+    saved = sqlite3.connect(backup)
+    assert saved.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert saved.execute("SELECT failures FROM feed").fetchone() == (2,)
+    assert saved.execute("SELECT title FROM video").fetchone() == ("An old upload",)
+    saved.close()
+
+
 # Polling
 
 
