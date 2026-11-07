@@ -372,7 +372,7 @@ class ChannelEditScreen(ModalScreen[bool]):
 @implements("tui", "channels.list")
 class ChannelsScreen(Screen):
     BINDINGS = [
-        Binding("escape,q,c", "app.pop_screen", "Back"),
+        Binding("escape,q", "app.pop_screen", "Back"),
         Binding("a", "add", "Add"),
         Binding("j", "cursor_down", "Down", show=False),
         Binding("k", "cursor_up", "Up", show=False),
@@ -437,7 +437,7 @@ class ChannelsScreen(Screen):
 @implements("tui", "seen.list")
 class SeenScreen(Screen):
     BINDINGS = [
-        Binding("escape,q,v", "app.pop_screen", "Back"),
+        Binding("escape,q", "app.pop_screen", "Back"),
         Binding("u", "restore", "Put back"),
         Binding("j", "cursor_down", "Down", show=False),
         Binding("k", "cursor_up", "Up", show=False),
@@ -795,13 +795,21 @@ class UppytApp(App):
         if self._usable():
             self.push_screen(AddChannelScreen(), self._reload_if)
 
+    def _show_list(self, screen_type: type[Screen]) -> None:
+        """Channels and Seen swap in place, so one Escape always gets back to the board."""
+        if not self.services or isinstance(self.screen, screen_type):
+            return
+        if isinstance(self.screen, (ChannelsScreen, SeenScreen)):
+            self.switch_screen(screen_type())
+        else:
+            self.push_screen(screen_type())
+
     def action_channels(self) -> None:
         if self._usable():
-            self.push_screen(ChannelsScreen())
+            self._show_list(ChannelsScreen)
 
     def action_seen_list(self) -> None:
-        if self.services:
-            self.push_screen(SeenScreen())
+        self._show_list(SeenScreen)
 
     def _settings_closed(self, saved: bool | None) -> None:
         if saved:

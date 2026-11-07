@@ -876,3 +876,25 @@ async def test_choosing_a_profile_with_a_bad_hand_edit_says_why(scene):
         await settle(app, pilot)
         assert "nat" in status(app)
         assert f"{MKBHD}: window_days" in str(app.query_one("#notes", Static).render())
+
+
+async def test_channels_and_seen_switch_in_place_so_one_escape_gets_back(scene):
+    app = scene.app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        board = app.screen
+        await pilot.press("c")
+        await pilot.pause()
+        assert isinstance(app.screen, ChannelsScreen)
+        for key, screen in (("v", SeenScreen), ("c", ChannelsScreen), ("v", SeenScreen), ("v", SeenScreen)):
+            await pilot.press(key)
+            await pilot.pause()
+            assert isinstance(app.screen, screen)
+            assert len(app.screen_stack) == 2
+        await pilot.press("c", "c")
+        await pilot.pause()
+        assert isinstance(app.screen, ChannelsScreen)
+        assert len(app.screen_stack) == 2
+        await pilot.press("escape")
+        await pilot.pause()
+        assert app.screen is board
