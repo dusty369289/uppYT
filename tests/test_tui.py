@@ -835,3 +835,44 @@ async def test_a_tag_with_markup_stays_literal_in_the_filter(scene, tag):
         assert app.is_running
         assert select.value == tag
         assert tag in str(select.query_one("SelectCurrent Static").render())
+
+
+async def test_a_bad_hand_edit_to_channels_is_a_message_not_a_crash(scene, tmp_path):
+    out = tmp_path / "list.opml"
+    scene.services().channels.add("@veritasium")
+    path = scene.runtime.profile("dusty").folder / "channels.toml"
+    path.write_text(f'[channels]\n{MKBHD} = "high"\n')
+    app = scene.app()
+    async with app.run_test(size=(100, 50)) as pilot:
+        await settle(app, pilot)
+        notes = str(app.query_one("#notes", Static).render())
+        assert MKBHD in notes and "channels.toml" in notes
+        assert rows(app) == []
+        for key in ("c", "f", "a", "r"):
+            await pilot.press(key)
+            await settle(app, pilot)
+            assert len(app.screen_stack) == 1, key
+        assert any(MKBHD in str(n.message) for n in app._notifications)
+        assert MKBHD in str(app.query_one("#notes", Static).render())
+        await pilot.press("i")
+        await pilot.pause()
+        app.screen.query_one("#export-path", Input).value = str(out)
+        await pilot.click("#export-path")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert MKBHD in str(app.screen.query_one("#result", Static).render())
+        assert not out.exists()
+    assert path.read_text() == f'[channels]\n{MKBHD} = "high"\n'
+
+
+async def test_choosing_a_profile_with_a_bad_hand_edit_says_why(scene):
+    scene.services("nat")
+    (scene.runtime.profile("nat").folder / "channels.toml").write_text(f"[channels.{MKBHD}]\nwindow_days = true\n")
+    app = scene.app(profile=None)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.screen.query_one("#profiles", DataTable).focus()
+        await pilot.press("enter")
+        await settle(app, pilot)
+        assert "nat" in status(app)
+        assert f"{MKBHD}: window_days" in str(app.query_one("#notes", Static).render())

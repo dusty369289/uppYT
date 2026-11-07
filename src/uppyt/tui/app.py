@@ -589,6 +589,8 @@ class TransferScreen(ModalScreen[bool]):
             path.write_text(self.app.services.transfer.export_opml(), encoding="utf-8")
         except OSError as error:
             self._say(f"Couldn't write that file: {error.strerror}.")
+        except UserError as error:
+            self._say(str(error))
         else:
             self._say(f"Wrote {path}.")
 
@@ -648,6 +650,7 @@ class UppytApp(App):
         self.kinds: frozenset[FeedKind] = frozenset(TOGGLES)
         self.tag: str | None = None
         self._refresh_loop: RefreshLoop | None = None
+        self.profile_problem: str | None = None
 
     def compose(self) -> ComposeResult:
         yield Static("", id="status")
@@ -693,11 +696,18 @@ class UppytApp(App):
             return
         table = self.query_one("#board", DataTable)
         row = table.cursor_row
+        notes = self.query_one("#notes", Static)
         try:
             view = self.services.board.view(window_days=self.window_days, kinds=self.kinds, tag=self.tag, limit=2000)
         except UserError as error:
-            self.report(error)
+            # A hand edit uppYT can't read: say what's wrong, and leave the file for the person to fix.
+            self.profile_problem = str(error)
+            table.clear()
+            self.query_one("#status", Static).update(Text(f"{self.services.store.name}  This profile can't be shown."))
+            notes.update(Text(self.profile_problem))
+            notes.set_class(False, "-empty")
             return
+        self.profile_problem = None
         table.clear()
         for card in view.cards:
             label = "" if card.priority is Priority.NORMAL else card.priority.label
@@ -717,7 +727,6 @@ class UppytApp(App):
         if not view.channel_count:
             status = f"{name}  No channels yet. Press a to add one."
         self.query_one("#status", Static).update(Text(status))
-        notes = self.query_one("#notes", Static)
         notes.update(Text("\n".join(view.notes)))
         notes.set_class(not view.notes, "-empty")
 
@@ -773,12 +782,21 @@ class UppytApp(App):
         if changed:
             self.reload_board()
 
+    def _usable(self) -> bool:
+        """A profile whose channels can't be read can't offer screens built on them. Say why instead."""
+        if self.services is None:
+            return False
+        if self.profile_problem:
+            self.notify(self.profile_problem, severity="error", markup=False, timeout=8)
+            return False
+        return True
+
     def action_add_channel(self) -> None:
-        if self.services:
+        if self._usable():
             self.push_screen(AddChannelScreen(), self._reload_if)
 
     def action_channels(self) -> None:
-        if self.services:
+        if self._usable():
             self.push_screen(ChannelsScreen())
 
     def action_seen_list(self) -> None:
@@ -811,7 +829,7 @@ class UppytApp(App):
         self.push_screen(HelpScreen())
 
     def action_filter(self) -> None:
-        if not self.services:
+        if not self._usable():
             return
 
         def apply(choice: dict | None) -> None:
