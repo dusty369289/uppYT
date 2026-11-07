@@ -68,6 +68,8 @@ class Tuning:
     lock_lease: timedelta = timedelta(minutes=30)
     workers: int = 4
     struggling_after: int = 3  # failed feeds in a row before YouTube counts as having a bad spell
+    probe_attempts: int = 3  # for a feed that might be switched on, when someone adds a channel
+    quick_attempts: int = 2  # the same, when importing a long list
     recheck_attempts: int = 2  # a feed believed absent is only checked lightly, since most channels lack some feeds
 
 

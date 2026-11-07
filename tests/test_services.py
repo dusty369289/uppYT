@@ -13,7 +13,7 @@ from uppyt.services.app import UppYT
 from uppyt.services.refresh import RefreshLoop
 from uppyt.services.runtime import Paths, Runtime, Tuning
 from uppyt.sources.channels import ChannelInputError, ChannelLookupError
-from uppyt.sources.opml import parse_opml
+from uppyt.sources.opml import OpmlChannel, parse_opml, write_opml
 from uppyt.sources.transport import Response
 from uppyt.store.profiles import ProfileError
 
@@ -828,6 +828,27 @@ def test_the_largest_repeat_penalty_cant_break_the_board(scene):
     scene.app.channels.add("@mkbhd", feeds=[FeedKind.VIDEOS, FeedKind.SHORTS, FeedKind.LIVE, FeedKind.MEMBERS])
     scene.app.settings.update({"repeat_penalty_days": 3650})
     assert scene.app.board.view(window_days=3650).cards
+
+
+def test_adding_a_channel_stays_polite(scene):
+    """This once took 46 requests for a channel with few feeds. Hopeful retries on missing feeds were most of it."""
+    scene.app.channels.add("@veritasium")
+    # page, avatar, channel feed, Videos, 3 tries each on Live, Shorts and Members, 1 each on the other 4
+    assert len(scene.transport.requests) <= 17
+
+
+def test_importing_a_channel_is_quicker_still(scene):
+    """A long OPML list would have sent thousands of requests."""
+    scene.app.transfer.import_opml(write_opml([OpmlChannel(SECOND, "V")]))
+    assert len(scene.transport.requests) <= 6
+    assert scene.app.store.subscriptions()[SECOND]
+    assert scene.app.board.view().total == 4
+
+
+def test_a_quick_probe_leaves_other_feeds_unknown_rather_than_missing(scene):
+    preview = scene.app.channels.lookup("@veritasium", quick=True)
+    assert preview.available.get(FeedKind.SHORTS) is None
+    assert FeedKind.POPULAR_LIVE not in preview.available
 
 
 def test_a_blank_reference_matches_nothing(scene):

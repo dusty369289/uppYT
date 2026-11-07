@@ -3,7 +3,8 @@
 Confirmed against real feeds on 2026-11-06. A feed's playlist ID is its prefix plus the channel ID without its "UC".
 
 Playlist feeds are flaky: the same URL can answer 200, 404 or 500 from one second to the next, and Shorts failed 8 times
-in 12 when measured. sources/feeds.py retries. The plain channel feed answered 20 times in 20.
+in 12 when measured. sources/feeds.py retries. The plain channel feed usually works when these don't (20 in 20 once),
+but not always: during one long bad spell it answered 2 in 20, and every other feed 0 in 20.
 """
 
 from __future__ import annotations

@@ -106,3 +106,17 @@ Neither was re-run away or loosened, and both limits stayed where they were.
   read as faster and stay flagged until someone accepts it with a reason.
 - **The thumbnail generator is in the repo.** The artwork is source for a public project, so it should be reproducible and
   editable. It pins the emoji set to a commit, and the three CC0 photos it uses are committed.
+
+## 2026-11-07: an overnight pass
+
+- **An independent review found 11 defects**, all reproduced by a failing test first and then fixed. Worst: a long-failing feed
+  overflowed its backoff and aborted refreshes, a remembered 404 counted as new evidence and wrongly marked feeds absent,
+  and a huge channel window broke the board with no way to undo it from the web.
+- **Far fewer requests.** Adding a channel went from 46 to at most 17, and importing from 46 to 6 per channel, by
+  asking the channel feed first and retrying only feeds that might get used. Requests are paced at 4 a second, not 10.
+- **During an outage, the rest of a refresh gets one try each** once 3 feeds in a row have failed.
+- **Channel pages are only read up to 1.2 MB of 3 MB**, except `/channel/` links, whose handle comes near the end.
+- **Saves lock across processes** with a lock file, closing the known web and CLI race.
+- **"The channel feed is reliable" was too strong.** During one spell it answered 2 in 20, and every other feed 0 in 20. The
+  cause is unknown: an outage, or throttling after heavy testing that night. Live tests now skip, saying why, when YouTube
+  gives no usable answer, since that says nothing about formats.

@@ -92,7 +92,10 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
 - **Playlist feeds are flaky.** The same URL answers 200, 404 or 500 at random (Shorts failed 8 in 12, once 12 in 12).
   A bad spell lasts about 40 seconds and hits one feed while others are fine, so retries alone can't guarantee a fetch.
   `FeedClient` retries, "missing" means every attempt said 404, a failed feed is rechecked after 5 minutes, doubling. The plain channel feed was reliable (20 in 20) and
-  its links tell Shorts apart, so it vouches for feeds that didn't answer. Tests with recordings can't show this.
+  its links tell Shorts apart, so it vouches for feeds that didn't answer. It isn't guaranteed: in one long bad spell it
+  answered 2 in 20 and everything else 0 in 20. Tests with recordings can't show this.
+- **Count requests, and don't hammer YouTube while testing.** Adding one channel once took 46 requests. A test limits it
+  now. Heavy live testing may have got a connection throttled, and the owner watches YouTube on that connection.
 - **Never keep YouTube's cookies.** Keeping one sends UK and EU visitors to its consent page. Without one, the redirect
   comes straight back. The fixtures passed while every real lookup failed, so check real behaviour with a live run:
   `uv run pytest -m live -n 0` and the real app in a scratch `UPPYT_HOME`.

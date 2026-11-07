@@ -60,7 +60,7 @@ def is_allowed(url: str, hosts: frozenset[str] = ALLOWED_HOSTS) -> bool:
 class HttpTransport:
     """Only YouTube's own hosts, over HTTPS, checked again at every redirect. Paced so polling stays polite."""
 
-    def __init__(self, *, min_interval: float = 0.1, timeout: float = 20.0, client: httpx.Client | None = None):
+    def __init__(self, *, min_interval: float = 0.25, timeout: float = 20.0, client: httpx.Client | None = None):
         self._client = client or httpx.Client(timeout=timeout, headers={"User-Agent": f"uppYT/{__version__}"})
         # No cookies, ever. Besides being polite, keeping YouTube's cookie is what lands UK and EU visitors on its
         # consent page. Without one, the same redirect comes straight back to the page asked for.

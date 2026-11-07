@@ -180,13 +180,26 @@ class ChannelService:
         self._store = store
         self._refresh = refresh
 
-    def _probe(self, channel_id: str) -> dict[FeedKind, bool | None]:
-        """Which of a channel's feeds exist. A failure isn't a no, so it stays None."""
-        kinds = [spec.kind for spec in CATALOGUE]
-        with ThreadPoolExecutor(self._runtime.tuning.workers) as pool:
-            answers = dict(
-                zip(kinds, pool.map(lambda kind: self._runtime.feeds.fetch(channel_id, kind), kinds), strict=True)
-            )
+    def _probe(self, channel_id: str, *, quick: bool = False) -> dict[FeedKind, bool | None]:
+        """Which of a channel's feeds exist. A failure isn't a no, so it stays None.
+
+        Every request counts: this used to send 46 for one channel. Feeds uppYT only reports on get one try, and a quick
+        probe, for importing a long list, only asks about the ones it's about to use.
+        """
+        tuning = self._runtime.tuning
+        fetch = self._runtime.feeds.fetch
+        answers = {FeedKind.ALL: fetch(channel_id, FeedKind.ALL, attempts=tuning.probe_attempts)}
+        if quick:
+            plan = {kind: tuning.quick_attempts for kind in DEFAULT_ON}
+        else:
+            plan = {
+                spec.kind: tuning.probe_attempts if spec.toggle else 1
+                for spec in CATALOGUE
+                if spec.kind is not FeedKind.ALL
+            }
+        with ThreadPoolExecutor(tuning.workers) as pool:
+            found = pool.map(lambda item: fetch(channel_id, item[0], attempts=item[1]), plan.items())
+            answers.update(zip(plan, found, strict=True))
         available: dict[FeedKind, bool | None] = {
             kind: True if isinstance(answer, Found) else False if isinstance(answer, Missing) else None
             for kind, answer in answers.items()
@@ -204,12 +217,13 @@ class ChannelService:
         return available
 
     @operation("channels.lookup", "Find a channel from a link and show which feeds it offers")
-    def lookup(self, text: str, *, need_handle: bool = True) -> ChannelPreview:
-        resolved = self._runtime.resolver.resolve(text, need_handle=need_handle)
+    def lookup(self, text: str, *, quick: bool = False) -> ChannelPreview:
+        """With quick, skips what an import doesn't need: the channel's handle, and feeds it won't use."""
+        resolved = self._runtime.resolver.resolve(text, need_handle=not quick)
         return ChannelPreview(
             channel=Channel(resolved.id, resolved.name, resolved.handle),
             avatar_url=resolved.avatar_url,
-            available=self._probe(resolved.id),
+            available=self._probe(resolved.id, quick=quick),
             following=resolved.id in self._store.subscriptions(),
         )
 
@@ -236,11 +250,11 @@ class ChannelService:
         feeds: Iterable[FeedKind] | None = None,
         tags: Iterable[str] = (),
         window_days: int | None = None,
-        need_handle: bool = True,
+        quick: bool = False,
     ) -> ChannelDetail:
         _check_window(window_days)
         now = self._runtime.clock()
-        preview = self.lookup(text, need_handle=need_handle)
+        preview = self.lookup(text, quick=quick)
         if preview.following:
             raise UserError(f"You already follow {preview.channel.name}.")
         channel = replace(preview.channel, avatar_file=self._save_avatar(preview.avatar_url, preview.channel.id))
@@ -468,7 +482,7 @@ class TransferService:
             else:
                 try:
                     priority = Priority.NORMAL if entry.priority is None else entry.priority
-                    detail = self._channels.add(entry.channel_id, priority=priority, tags=entry.tags, need_handle=False)
+                    detail = self._channels.add(entry.channel_id, priority=priority, tags=entry.tags, quick=True)
                     report.added.append(detail.channel.name)
                 except UserError as error:
                     report.failures.append((entry.title, str(error)))
