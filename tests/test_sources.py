@@ -211,6 +211,7 @@ def test_channel_links_in_every_accepted_form(text, url):
         ("https://youtube.com.evil.example/@x", "isn't a YouTube link"),
         ("mkbhd", "isn't a YouTube link"),
         ("https://www.youtube.com/feed/subscriptions", "doesn't look like a channel"),
+        ("https://[www.youtube.com/@x", "isn't a YouTube link"),
     ],
 )
 def test_everything_else_is_refused_with_advice_and_no_request(text, hint):
@@ -443,6 +444,16 @@ def test_opml_from_another_reader_with_folders_and_other_feeds():
     assert [c.channel_id for c in parsed] == [MKBHD, "UCHnyfMqiRRG1u-2MsSQLbXA"]
     assert parsed[0].tags == ("tech", "gadgets")
     assert skipped == 1
+
+
+def test_a_malformed_address_in_opml_is_skipped():
+    data = '<opml><body><outline xmlUrl="https://[broken/feeds"/></body></opml>'
+    assert parse_opml(data) == ([], 1)
+
+
+def test_a_redirect_to_a_malformed_address_is_refused():
+    assert not is_allowed("https://www.youtube.com:notaport/")
+    assert not is_allowed("https://[broken")
 
 
 def test_the_same_channel_twice_counts_once():

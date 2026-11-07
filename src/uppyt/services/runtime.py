@@ -67,6 +67,7 @@ class Tuning:
     retry_after: timedelta = timedelta(minutes=5)  # a flaky feed's bad spell was measured at about 40 seconds
     lock_lease: timedelta = timedelta(minutes=30)
     workers: int = 4
+    struggling_after: int = 3  # failed feeds in a row before YouTube counts as having a bad spell
     recheck_attempts: int = 2  # a feed believed absent is only checked lightly, since most channels lack some feeds
 
 

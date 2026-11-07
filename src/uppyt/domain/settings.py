@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .models import Priority
 
+MAX_WINDOW_DAYS = 3650  # also keeps date arithmetic safe, however a file was hand-edited
 THEMES: tuple[tuple[str, str], ...] = (("lights-down", "Lights down"),)
 
 
@@ -29,7 +30,7 @@ class HeadStarts(BaseModel):
 class Settings(BaseModel):
     model_config = ConfigDict(extra="ignore", validate_assignment=True)
 
-    window_days: int = Field(default=60, ge=1, le=3650)
+    window_days: int = Field(default=60, ge=1, le=MAX_WINDOW_DAYS)
     head_starts: HeadStarts = Field(default_factory=HeadStarts)
     repeat_penalty_days: float = Field(default=7, ge=0, le=3650)
     theme: Literal["lights-down"] = "lights-down"  # add new themes here and to THEMES

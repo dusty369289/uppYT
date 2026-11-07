@@ -62,6 +62,12 @@
     }
   });
 
+  // After checking for new videos, show them, by asking for the board again with the filters as they stand.
+  document.body.addEventListener("uppyt-refreshed", () => {
+    const filters = document.querySelector(".tools");
+    if (filters) htmx.trigger(filters, "change");
+  });
+
   // A toast fades after a while, unless someone is about to use it.
   let toastTimer;
   document.body.addEventListener("htmx:oobAfterSwap", (event) => {

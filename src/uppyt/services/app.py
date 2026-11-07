@@ -15,7 +15,7 @@ from ..domain.errors import NotFound, UserError
 from ..domain.feeds import CATALOGUE, DEFAULT_ON, SPECS, TOGGLES, FeedKind
 from ..domain.models import Channel, FeedStatus, Priority, Subscription, normalise_tags
 from ..domain.ranking import Candidate, HeadStartRanker, describe_age, in_window, window_for
-from ..domain.settings import Settings
+from ..domain.settings import MAX_WINDOW_DAYS, Settings
 from ..ops import operation
 from ..sources.channels import ChannelLookupError, ResolvedChannel
 from ..sources.feeds import Found, Missing
@@ -41,6 +41,11 @@ from .views import (
 UNSET: Any = object()
 ALL_BOARD_KINDS = frozenset(TOGGLES)
 MAX_AVATAR_BYTES = 2 * 1024 * 1024
+
+
+def _check_window(days: int | None) -> None:
+    if days is not None and not 1 <= days <= MAX_WINDOW_DAYS:
+        raise UserError(f"A channel's window must be between 1 and {MAX_WINDOW_DAYS} days.")
 
 
 def _board_kind(video) -> FeedKind:
@@ -189,8 +194,11 @@ class ChannelService:
         uploads = answers[FeedKind.ALL]
         if isinstance(uploads, Found):
             # The channel feed is reliable and its links tell Shorts apart, so it vouches for feeds that didn't answer.
-            available[FeedKind.VIDEOS] = available[FeedKind.VIDEOS] or any(not e.is_short for e in uploads.feed.entries)
-            available[FeedKind.SHORTS] = available[FeedKind.SHORTS] or any(e.is_short for e in uploads.feed.entries)
+            # It can only say yes: a feed that didn't answer stays unknown, even if no recent upload was that kind.
+            if any(not e.is_short for e in uploads.feed.entries):
+                available[FeedKind.VIDEOS] = True
+            if any(e.is_short for e in uploads.feed.entries):
+                available[FeedKind.SHORTS] = True
         elif not any(available.values()):
             raise ChannelLookupError("YouTube didn't list any feeds for that channel just now. Try again in a moment.")
         return available
@@ -230,6 +238,7 @@ class ChannelService:
         window_days: int | None = None,
         need_handle: bool = True,
     ) -> ChannelDetail:
+        _check_window(window_days)
         now = self._runtime.clock()
         preview = self.lookup(text, need_handle=need_handle)
         if preview.following:
@@ -262,10 +271,16 @@ class ChannelService:
             return reference
         wanted = reference.casefold()
         channels = self._runtime.catalogue.channels(subscriptions)
-        for channel in channels.values():
-            handle = (channel.handle or "").casefold()
-            if wanted in (channel.name.casefold(), handle, handle.removeprefix("@")):
-                return channel.id
+        if wanted:
+            for channel in channels.values():  # handles are unique, so one of these is certainly the one
+                handle = (channel.handle or "").casefold()
+                if handle and wanted in (handle, handle.removeprefix("@")):
+                    return channel.id
+            named = [channel.id for channel in channels.values() if channel.name.casefold() == wanted]
+            if len(named) > 1:
+                raise UserError(f"More than one channel is called {reference}. Use its ID: {', '.join(named)}.")
+            if named:
+                return named[0]
         raise NotFound(f"You don't follow {reference}. See who you do with: uppyt channels ls")
 
     @operation("channels.list", "List followed channels")
@@ -361,8 +376,8 @@ class ChannelService:
         channel_id = self.find(reference)
         current = self._store.subscriptions()[channel_id]
         new_feeds = frozenset(feeds) if feeds is not None else current.feeds
-        if window_days is not UNSET and window_days is not None and window_days < 1:
-            raise UserError("A channel's window must be at least 1 day.")
+        if window_days is not UNSET:
+            _check_window(window_days)
         updated = Subscription(
             channel_id=channel_id,
             priority=priority if priority is not None else current.priority,

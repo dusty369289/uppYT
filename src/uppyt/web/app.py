@@ -326,10 +326,11 @@ def create_app(
     @app.get("/seen", response_class=HTMLResponse)
     def seen_page(request: Request):
         app_services = services(request)
-        offset = _optional_int(request.query_params.get("offset", ""), "The offset") or 0
-        return render(
-            request, "seen.html", {"profile": app_services, "page": app_services.seen.list(offset=max(0, offset))}
-        )
+        offset = max(0, _optional_int(request.query_params.get("offset", ""), "The offset") or 0)
+        seen_page = app_services.seen.list(offset=offset)
+        if not seen_page.items and seen_page.total:  # the last on a later page was put back, or the address is old
+            seen_page = app_services.seen.list()
+        return render(request, "seen.html", {"profile": app_services, "page": seen_page})
 
     # Channels
 

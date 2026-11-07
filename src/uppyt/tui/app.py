@@ -149,7 +149,12 @@ class FilterScreen(ModalScreen[dict | None]):
             for kind in TOGGLES:
                 yield Checkbox(SPECS[kind].label, value=kind in app.kinds, id=f"kind-{kind.value}")
             yield Label("Tag", classes="field-label")
-            yield Select([("All tags", ""), *[(t, t) for t in tags]], value=app.tag or "", allow_blank=False, id="tag")
+            yield Select(
+                [("All tags", ""), *[(t, t) for t in tags]],
+                value=app.tag if app.tag in tags else "",
+                allow_blank=False,
+                id="tag",
+            )
             with Horizontal(classes="buttons"):
                 yield Button("Apply", id="apply", variant="primary")
                 yield Button("Cancel", id="cancel")
@@ -203,6 +208,8 @@ class AddChannelScreen(ModalScreen[bool]):
 
     @on(Input.Submitted, "#link")
     def find(self, event: Input.Submitted) -> None:
+        self.preview = None  # whatever the last lookup found no longer applies
+        self.query_one("#choices").display = False
         self.query_one("#problem", Static).update("")
         self.query_one("#found", Static).update("Looking...")
         link = event.value
@@ -231,9 +238,9 @@ class AddChannelScreen(ModalScreen[bool]):
             return
         for kind in TOGGLES:
             box = self.query_one(f"#feed-{kind.value}", Checkbox)
-            if preview.available.get(kind) is False:
-                box.value = False
-                box.label = f"{SPECS[kind].label} (not found)"
+            found = preview.available.get(kind) is not False
+            box.value = SPECS[kind].default_on and found
+            box.label = SPECS[kind].label if found else f"{SPECS[kind].label} (not found)"
         self.query_one("#choices").display = True
         self.query_one("#priority", Select).focus()
 
@@ -281,7 +288,8 @@ class ChannelEditScreen(ModalScreen[bool]):
             yield Static(Text(f"Counts as {detail.head_start_days:g} days newer on your board."), classes="note")
             yield Label("Feeds", classes="field-label")
             for feed in detail.feeds:
-                suffix = "" if feed.enabled else f" ({feed.state_text})"
+                fine = feed.state_text in ("Up to date", "Off", "Not fetched yet")
+                suffix = "" if fine else f" ({feed.state_text})"
                 yield Checkbox(f"{feed.label}{suffix}", value=feed.enabled, id=f"feed-{feed.kind.value}")
             yield Label("Tags, separated by commas", classes="field-label")
             yield Input(", ".join(subscription.tags), id="tags")
@@ -415,7 +423,7 @@ class SeenScreen(Screen):
     def reload(self) -> None:
         table = self.query_one("#seen", DataTable)
         table.clear()
-        for item in self.app.services.seen.list(limit=500).items:
+        for item in self.app.services.seen.list(limit=1_000_000).items:
             name = item.channel.name if item.channel else ""
             table.add_row(plain(name), plain(item.age), plain(item.video.title), key=item.video.id)
         table.focus()
@@ -702,9 +710,14 @@ class UppytApp(App):
         if self.services:
             self.push_screen(SeenScreen())
 
+    def _settings_closed(self, saved: bool | None) -> None:
+        if saved:
+            self.window_days = self.services.settings.get().window_days
+            self.reload_board()
+
     def action_settings(self) -> None:
         if self.services:
-            self.push_screen(SettingsScreen(), self._reload_if)
+            self.push_screen(SettingsScreen(), self._settings_closed)
 
     def action_transfer(self) -> None:
         if self.services:
@@ -730,6 +743,7 @@ class UppytApp(App):
         def chosen(name: str | None) -> None:
             if name:
                 self.services = UppYT(self.runtime, self.runtime.profile(name))
+                self.tag = None  # another profile's tags mean nothing here
                 self._begin()
 
         self.push_screen(ProfileScreen(), chosen)

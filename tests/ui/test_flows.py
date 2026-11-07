@@ -7,7 +7,9 @@ import re
 import pytest
 from playwright.sync_api import expect
 
+from tests.support import NOW, feed_xml
 from tests.ui.conftest import Watcher, open_context
+from tests.ui.scenes import CHANNELS
 from uppyt.domain.feeds import TOGGLES, FeedKind
 
 pytestmark = [pytest.mark.ui, pytest.mark.timeout(45)]
@@ -126,6 +128,19 @@ def test_the_filter_form_is_never_replaced(board):
     page.get_by_label("Tag").select_option("food")
     expect(page).to_have_url(re.compile(r"tag=food"))
     assert page.evaluate("document.querySelector('.tools').dataset.original") == "yes"
+
+
+def test_check_now_updates_the_board_it_reports_on(board):
+    """The toast said '1 new' while the cards and 'Last checked' stayed stale until a reload."""
+    page, scene, _ = board
+    channel = CHANNELS["alpha"][0]
+    fresh = feed_xml(channel, "Harbour Science", [("fresh000xxx", "Brand new upload", NOW)])
+    scene.transport.serve_feed(channel, FeedKind.VIDEOS, fresh)
+    scene.runtime.feeds._cache.clear()
+    scene.clock.advance(hours=2)
+    page.get_by_role("button", name="Check now").click()
+    expect(page.locator(".toast")).to_contain_text("new")
+    expect(page.locator('[data-video="fresh000xxx"]')).to_have_count(1)
 
 
 def test_unticking_every_kind_says_why_nothing_shows(board):

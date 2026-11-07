@@ -10,7 +10,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from ..domain.errors import UserError
-from ..domain.feeds import FeedKind
+from ..domain.feeds import FEED_CAP, FeedKind
 from ..domain.models import Channel, FeedState, FeedStatus, ParsedFeed
 from ..ops import operation
 from ..sources.feeds import Failed, FeedAnswer, Found
@@ -48,7 +48,9 @@ class RefreshService:
             return state.next_check_at is None or state.next_check_at <= now  # forcing shouldn't pester absent feeds
         return force or state.next_check_at is None or state.next_check_at <= now
 
-    def _apply(self, channel_id: str, kind: FeedKind, answer: FeedAnswer, now: datetime, report: RefreshReport) -> None:
+    def _apply(
+        self, channel_id: str, kind: FeedKind, answer: FeedAnswer, now: datetime, report: RefreshReport, attempts: int
+    ) -> None:
         catalogue = self._runtime.catalogue
         tuning = self._runtime.tuning
         report.checked += 1
@@ -61,23 +63,27 @@ class RefreshService:
             report.failed += 1
             log.warning("Feed %s %s: %s", channel_id, kind.value, answer.reason)
             catalogue.record_failure(channel_id, kind, now, tuning.retry_after)
-            self._fill_in(channel_id, kind, now, report)
+            self._fill_in(channel_id, kind, now, report, attempts)
         else:
-            status = catalogue.record_missing(channel_id, kind, now, tuning.retry_after)
+            status = catalogue.record_missing(channel_id, kind, now, tuning.retry_after, asked_at=answer.asked_at)
             report.failed += int(status is FeedStatus.FAILING)
             if status is FeedStatus.FAILING:
-                self._fill_in(channel_id, kind, now, report)
+                self._fill_in(channel_id, kind, now, report, attempts)
 
-    def _fill_in(self, channel_id: str, kind: FeedKind, now: datetime, report: RefreshReport) -> None:
+    def _fill_in(self, channel_id: str, kind: FeedKind, now: datetime, report: RefreshReport, attempts: int) -> None:
         """A flaky feed shouldn't cost anyone videos. The plain channel feed is reliable, and its links tell Shorts from
         the rest, so it covers Videos and Shorts until their own feeds answer again."""
         if kind not in (FeedKind.VIDEOS, FeedKind.SHORTS):
             return
-        answer = self._runtime.feeds.fetch(channel_id, FeedKind.ALL, attempts=self._runtime.tuning.recheck_attempts)
+        answer = self._runtime.feeds.fetch(channel_id, FeedKind.ALL, attempts=attempts)
         if isinstance(answer, Found):
             self._keep_channel_current(channel_id, answer.feed, now)
             wanted = [e for e in answer.feed.entries if e.is_short == (kind is FeedKind.SHORTS)]
-            report.new_videos += self._runtime.catalogue.record_entries(kind, wanted, now)
+            result = self._runtime.catalogue.record_entries(
+                channel_id, kind, wanted, now, source_was_full=len(answer.feed.entries) >= FEED_CAP
+            )
+            report.new_videos += result.new_videos
+            report.gaps += int(result.possible_gap)
 
     def _keep_channel_current(self, channel_id: str, feed: ParsedFeed, now: datetime) -> None:
         """Names change, and a channel added by hand in channels.toml only gets its name from here."""
@@ -93,17 +99,29 @@ class RefreshService:
         targets = list(feeds)
         now = self._runtime.clock()
         states = self._runtime.catalogue.feed_states({channel_id for channel_id, _ in targets})
-        light = self._runtime.tuning.recheck_attempts
+        tuning = self._runtime.tuning
+        failures_in_a_row = 0
 
         def fetch(target: tuple[str, FeedKind]) -> FeedAnswer:
+            nonlocal failures_in_a_row
             state = states.get(target)
             absent = state is not None and state.status is FeedStatus.ABSENT
-            return self._runtime.feeds.fetch(*target, attempts=light if absent else None)
+            attempts = tuning.recheck_attempts if absent else None
+            if failures_in_a_row >= tuning.struggling_after:
+                attempts = 1  # YouTube is struggling, so the rest get one polite try and wait for the next check
+            answer = self._runtime.feeds.fetch(*target, attempts=attempts)
+            failures_in_a_row = 0 if isinstance(answer, Found) else failures_in_a_row + 1
+            return answer
 
-        with ThreadPoolExecutor(self._runtime.tuning.workers) as pool:
+        with ThreadPoolExecutor(tuning.workers) as pool:
             answers = pool.map(fetch, targets)
             for done, ((channel_id, kind), answer) in enumerate(zip(targets, answers, strict=True), start=1):
-                self._apply(channel_id, kind, answer, now, report)
+                fill_in_attempts = 1 if failures_in_a_row >= tuning.struggling_after else tuning.recheck_attempts
+                try:
+                    self._apply(channel_id, kind, answer, now, report, fill_in_attempts)
+                except Exception:  # one feed's trouble must not cost every feed after it this run
+                    log.exception("Couldn't save feed %s %s", channel_id, kind.value)
+                    report.failed += 1
                 if progress:
                     progress(done, len(targets))
         return report

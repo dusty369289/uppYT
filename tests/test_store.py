@@ -208,8 +208,8 @@ def test_a_feed_believed_absent_stays_that_way_on_another_404(catalogue):
 
 
 def test_entries_learned_elsewhere_leave_the_feeds_own_state_alone(catalogue):
-    assert catalogue.record_entries(FeedKind.VIDEOS, entries(MKBHD, 3).entries, NOW) == 3
-    assert catalogue.record_entries(FeedKind.VIDEOS, entries(MKBHD, 3).entries, NOW) == 0
+    assert catalogue.record_entries(MKBHD, FeedKind.VIDEOS, entries(MKBHD, 3).entries, NOW).new_videos == 3
+    assert catalogue.record_entries(MKBHD, FeedKind.VIDEOS, entries(MKBHD, 3).entries, NOW).new_videos == 0
     assert len(catalogue.videos([MKBHD])) == 3
     assert catalogue.feed_states([MKBHD]) == {}
 
@@ -357,6 +357,12 @@ def test_subscriptions_survive_storage(profile):
     text = (profile.folder / "channels.toml").read_text()
     assert "# Marques Brownlee" in text
     assert 'priority = "must_see"' in text
+
+
+def test_control_characters_in_a_name_cant_break_the_channel_file(profile):
+    """A carriage return in a channel's name wrote a file that could never be read again."""
+    profile.save_subscription(Subscription(MKBHD), note="Bad\rname\x07 here\nok")
+    assert MKBHD in profile.subscriptions()
 
 
 def test_hand_edits_and_comments_survive_saving(profile):

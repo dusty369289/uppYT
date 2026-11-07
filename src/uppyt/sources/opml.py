@@ -27,7 +27,10 @@ class OpmlChannel:
 
 
 def channel_id_from_feed_url(url: str) -> str | None:
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return None
     if f"{parts.scheme}://{parts.netloc}{parts.path}".replace("http://", "https://") != FEED_ROOT:
         return None
     query = parse_qs(parts.query)

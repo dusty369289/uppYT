@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from textual.widgets import Checkbox, DataTable, Input, Select, Static
 
-from tests.support import MKBHD, NOW, SECOND, FixedClock, feed_xml, no_sleep, world
+from tests.support import MKBHD, NOW, SECOND, FixedClock, entries, feed_xml, no_sleep, world
 from uppyt.domain.feeds import FeedKind
 from uppyt.domain.models import Priority
 from uppyt.services.app import UppYT
@@ -486,3 +486,116 @@ async def test_the_board_notes_thin_history(scene):
         app.reload_board()
         await pilot.pause()
         assert "15 videos" in str(app.query_one("#notes", Static).render())
+
+
+# Found by an independent review. Each failed before its fix.
+
+
+async def test_a_tag_from_another_profile_cant_crash_the_filter(scene):
+    services = scene.services()
+    services.channels.add("@veritasium", tags=["science"])
+    scene.services("nat")
+    app = scene.app()
+    async with app.run_test(size=(100, 50)) as pilot:
+        await pilot.pause()
+        app.tag = "science"
+        app.reload_board()
+        await pilot.press("p")
+        await pilot.pause()
+        app.screen.query_one("#profiles", DataTable).focus()
+        names = rows(app, "#profiles")
+        await pilot.press(*(["down"] * [n[0] for n in names].index("nat")), "enter")
+        await settle(app, pilot)
+        assert "nat" in status(app)
+        assert app.tag is None
+        await pilot.press("slash")
+        await pilot.pause()
+        assert isinstance(app.screen, FilterScreen)
+
+
+async def test_a_tag_nobody_uses_any_more_cant_crash_the_filter(scene):
+    scene.services().channels.add("@veritasium")
+    app = scene.app()
+    async with app.run_test(size=(100, 50)) as pilot:
+        await pilot.pause()
+        app.tag = "gone"
+        await pilot.press("slash")
+        await pilot.pause()
+        assert isinstance(app.screen, FilterScreen)
+
+
+async def test_changing_the_default_window_applies_straight_away(scene):
+    scene.services().channels.add("@veritasium")
+    app = scene.app()
+    async with app.run_test(size=(100, 60)) as pilot:
+        await pilot.pause()
+        assert len(rows(app)) == 4
+        await pilot.press("comma")
+        await pilot.pause()
+        app.screen.query_one("#set-window_days", Input).value = "10"
+        await pilot.click("#save")
+        await pilot.pause()
+        assert len(rows(app)) == 2
+
+
+async def test_a_new_lookup_clears_the_last_ones_answers(scene):
+    app = scene.app()
+    async with app.run_test(size=(100, 50)) as pilot:
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+        app.screen.query_one("#link", Input).value = "@veritasium"
+        await pilot.click("#link")
+        await pilot.press("enter")
+        await settle(app, pilot)
+        assert "not found" in str(app.screen.query_one("#feed-live", Checkbox).label)
+        app.screen.query_one("#link", Input).value = "@mkbhd"
+        await pilot.click("#link")
+        await pilot.press("enter")
+        await settle(app, pilot)
+        assert "not found" not in str(app.screen.query_one("#feed-live", Checkbox).label)
+        assert app.screen.query_one("#feed-live", Checkbox).value
+
+
+async def test_a_failed_lookup_cant_follow_the_previous_channel(scene):
+    app = scene.app()
+    async with app.run_test(size=(100, 50)) as pilot:
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+        app.screen.query_one("#link", Input).value = "@veritasium"
+        await pilot.click("#link")
+        await pilot.press("enter")
+        await settle(app, pilot)
+        app.screen.query_one("#link", Input).value = "@nobody"
+        await pilot.click("#link")
+        await pilot.press("enter")
+        await settle(app, pilot)
+        assert app.screen.preview is None
+        assert not app.screen.query_one("#choices").display
+
+
+async def test_the_edit_screen_shows_a_problem_on_an_enabled_feed(scene):
+    scene.services().channels.add("@veritasium")
+    app = scene.app()
+    async with app.run_test(size=(100, 50)) as pilot:
+        await pilot.pause()
+        await pilot.press("c")
+        await pilot.pause()
+        await pilot.press("enter")
+        await pilot.pause()
+        assert "Not found" in str(app.screen.query_one("#feed-live", Checkbox).label)
+
+
+async def test_the_seen_list_isnt_cut_off(scene):
+    services = scene.services()
+    services.channels.add("@veritasium")
+    feed = entries(SECOND, 600)
+    scene.runtime.catalogue.record_entries(SECOND, FeedKind.VIDEOS, feed.entries, NOW)
+    services.store._write_seen({entry.video_id: NOW for entry in feed.entries})
+    app = scene.app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("v")
+        await pilot.pause()
+        assert len(rows(app, "#seen")) == 600

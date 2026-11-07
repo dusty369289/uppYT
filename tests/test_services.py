@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import timedelta
 
 import pytest
@@ -7,7 +8,7 @@ import pytest
 from tests.support import MKBHD, NOW, SECOND, FixedClock, feed_xml, no_sleep, world
 from uppyt.domain.errors import NotFound, UserError
 from uppyt.domain.feeds import DEFAULT_ON, FeedKind, feed_url
-from uppyt.domain.models import FeedStatus, Priority
+from uppyt.domain.models import Channel, FeedStatus, Priority, Subscription
 from uppyt.services.app import UppYT
 from uppyt.services.refresh import RefreshLoop
 from uppyt.services.runtime import Paths, Runtime, Tuning
@@ -722,3 +723,126 @@ def test_tuning_is_a_parameter(tmp_path):
     runtime.clock.advance(minutes=21)
     assert app.refresh.run().checked == 1
     runtime.close()
+
+
+# Found by an independent review. Each failed before its fix.
+
+
+def fail_feed(scene, status=500):
+    scene.runtime.feeds._cache.clear()
+    scene.transport.break_feed(SECOND, FeedKind.VIDEOS, status)
+
+
+def test_a_feed_failing_for_a_very_long_time_doesnt_stop_the_refresh(scene):
+    """Doubling the wait overflowed after about 40 failures, which aborted the refresh for every feed after it."""
+    scene.app.channels.add("@veritasium")
+    for _ in range(45):
+        scene.clock.advance(days=2)
+        fail_feed(scene)
+        assert scene.app.refresh.run().failed == 1
+
+
+def test_one_feed_blowing_up_doesnt_stop_the_others(scene, monkeypatch):
+    scene.app.channels.add("@veritasium")
+    scene.app.channels.add("@mkbhd")
+    scene.clock.advance(hours=2)
+    scene.runtime.feeds._cache.clear()
+    real = scene.runtime.catalogue.record_success
+
+    def explode(channel_id, *args, **kwargs):
+        if channel_id == MKBHD:
+            raise RuntimeError("boom")
+        return real(channel_id, *args, **kwargs)
+
+    monkeypatch.setattr(scene.runtime.catalogue, "record_success", explode)
+    report = scene.app.refresh.run()
+    assert report.failed >= 1
+    assert scene.runtime.catalogue.feed_states([SECOND])[(SECOND, FeedKind.VIDEOS)].last_success_at == scene.clock.now
+
+
+def test_repeating_a_remembered_404_isnt_a_new_failure(scene):
+    """Clicking Check now twice reused one 404 from memory, counted it each time, and wrongly marked the feed absent."""
+    url = feed_url(SECOND, FeedKind.VIDEOS)
+    del scene.transport.routes[url]
+    scene.app.channels.add("@veritasium")
+    for _ in range(3):
+        scene.clock.advance(seconds=30)
+        scene.app.refresh.run(force=True)
+    state = scene.runtime.catalogue.feed_states([SECOND])[(SECOND, FeedKind.VIDEOS)]
+    assert state.status is FeedStatus.FAILING
+    assert state.failures == 1
+
+
+def test_a_feed_that_errored_isnt_called_missing(scene):
+    """A 500 means no answer. It mustn't turn into 'not found' because the newest uploads happen to have no Shorts."""
+    scene.transport.break_feed(SECOND, FeedKind.SHORTS)
+    assert scene.app.channels.lookup("@veritasium").available[FeedKind.SHORTS] is None
+
+
+def test_filling_in_still_notices_a_gap(scene):
+    """20 uploads while closed, then Videos flakes on the first poll: the channel feed filled in and hid the gap."""
+    scene.app.channels.add("@veritasium")
+    fresh = [(f"new{i:04d}xxx", f"New {i}", NOW + timedelta(days=30 - i)) for i in range(15)]
+    xml = feed_xml(SECOND, "Veritasium", fresh).replace(
+        "</entry>", '<link rel="alternate" href="https://www.youtube.com/watch?v=x"/></entry>'
+    )
+    scene.transport.serve_feed(SECOND, FeedKind.ALL, xml)
+    scene.clock.advance(days=31)
+    fail_feed(scene)
+    assert scene.app.refresh.run().gaps == 1
+    assert scene.runtime.catalogue.feed_states([SECOND])[(SECOND, FeedKind.VIDEOS)].gaps == 1
+
+
+def test_an_outage_doesnt_get_hammered(scene):
+    """Once several feeds in a row have failed, YouTube is struggling, so the rest only get one quick try."""
+    ids = [f"UC{i:022d}" for i in range(10)]
+    for channel_id in ids:
+        scene.app.store.save_subscription(Subscription(channel_id, feeds=frozenset({FeedKind.VIDEOS})))
+        scene.transport.break_feed(channel_id, FeedKind.VIDEOS, 500)
+    scene.transport.requests.clear()
+    scene.runtime.tuning = replace(scene.runtime.tuning, workers=1)
+    scene.app.refresh.run()
+    per_full_retry = scene.runtime.feeds._attempts
+    assert len(only_feed_requests(scene.transport)) < per_full_retry * 8  # about 80 at full effort
+
+
+@pytest.mark.parametrize("days", [1_000_000, 0, -5])
+def test_a_channels_window_has_sensible_limits(scene, days):
+    """A huge window overflowed date arithmetic on the board and channel pages, so nothing could undo it."""
+    scene.app.channels.add("@veritasium")
+    with pytest.raises(UserError, match="window"):
+        scene.app.channels.set(SECOND, window_days=days)
+    assert scene.app.board.view().total == 4
+
+
+def test_a_huge_window_edited_by_hand_cant_break_the_board(scene):
+    scene.app.channels.add("@veritasium")
+    path = scene.app.store.folder / "channels.toml"
+    path.write_text(path.read_text() + "window_days = 99999999\n")
+    assert scene.app.board.view().total == 4
+    assert scene.app.channels.list()
+    assert scene.app.channels.get(SECOND)
+
+
+def test_the_largest_repeat_penalty_cant_break_the_board(scene):
+    scene.app.channels.add("@mkbhd", feeds=[FeedKind.VIDEOS, FeedKind.SHORTS, FeedKind.LIVE, FeedKind.MEMBERS])
+    scene.app.settings.update({"repeat_penalty_days": 3650})
+    assert scene.app.board.view(window_days=3650).cards
+
+
+def test_a_blank_reference_matches_nothing(scene):
+    """An unset shell variable in 'uppyt channels rm "$X"' unfollowed the first channel with no handle."""
+    scene.app.channels.add("@veritasium")
+    scene.runtime.catalogue.save_channel(Channel("UC" + "z" * 22, "No handle"), NOW)
+    scene.app.store.save_subscription(Subscription("UC" + "z" * 22))
+    with pytest.raises(NotFound):
+        scene.app.channels.find("  ")
+
+
+def test_two_channels_with_one_name_ask_which(scene):
+    for letter in "yz":
+        channel_id = "UC" + letter * 22
+        scene.runtime.catalogue.save_channel(Channel(channel_id, "Same name"), NOW)
+        scene.app.store.save_subscription(Subscription(channel_id))
+    with pytest.raises(UserError, match="More than one"):
+        scene.app.channels.find("Same name")

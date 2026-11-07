@@ -120,6 +120,7 @@ LOCK_KEY = "refresh_lock"
 ABSENT_AFTER = 3  # 404s in a row before a feed that used to work counts as gone
 RECHECK_ABSENT = timedelta(days=1)  # only enabled feeds get checked, and "absent" might be YouTube being flaky
 MAX_BACKOFF = timedelta(days=1)
+MAX_DOUBLINGS = 16  # past this the wait is at its maximum anyway, and the number would eventually overflow
 
 
 def backup_database(source: Path, destination: Path) -> None:
@@ -252,16 +253,7 @@ class Catalogue:
             new_entries = [e for e in feed.entries if e.video_id not in known]
             possible_gap = not first_success and len(feed.entries) >= FEED_CAP and not known
             if possible_gap:
-                previous = session.exec(
-                    select(VideoRow.published_at)
-                    .join(VideoFeedRow, col(VideoFeedRow.video_id) == col(VideoRow.id))
-                    .where(VideoFeedRow.kind == kind.value, VideoRow.channel_id == channel_id)
-                    .order_by(col(VideoRow.published_at).desc())
-                ).first()
-                oldest = min(e.published_at for e in feed.entries)
-                session.add(
-                    GapRow(channel_id=channel_id, kind=kind.value, after=previous, before=oldest, noticed_at=now)
-                )
+                self._note_gap(session, channel_id, kind, feed.entries, now)
             self._keep_entries(session, kind, feed.entries, known, now)
             if first_success:
                 row.history_complete = len(feed.entries) < FEED_CAP
@@ -275,8 +267,30 @@ class Catalogue:
             session.commit()
             return PollResult(len(new_entries), possible_gap)
 
-    def record_entries(self, kind: FeedKind, entries: Iterable[FeedEntry], now: datetime) -> int:
-        """Videos known to belong to a feed, learned some other way. The feed's own state stays as it was."""
+    @staticmethod
+    def _note_gap(
+        session: Session, channel_id: str, kind: FeedKind, entries: Iterable[FeedEntry], now: datetime
+    ) -> None:
+        previous = session.exec(
+            select(VideoRow.published_at)
+            .join(VideoFeedRow, col(VideoFeedRow.video_id) == col(VideoRow.id))
+            .where(VideoFeedRow.kind == kind.value, VideoRow.channel_id == channel_id)
+            .order_by(col(VideoRow.published_at).desc())
+        ).first()
+        oldest = min(e.published_at for e in entries)
+        session.add(GapRow(channel_id=channel_id, kind=kind.value, after=previous, before=oldest, noticed_at=now))
+
+    def record_entries(
+        self,
+        channel_id: str,
+        kind: FeedKind,
+        entries: Iterable[FeedEntry],
+        now: datetime,
+        *,
+        source_was_full: bool = False,
+    ) -> PollResult:
+        """Videos known to belong to a feed, learned some other way. The feed's own state stays as it was, except that
+        a full source with nothing familiar means uploads may have been missed, the same as for the feed itself."""
         items = list(entries)
         with Session(self._writer) as session:
             known = set(
@@ -286,9 +300,14 @@ class Catalogue:
                     )
                 ).all()
             )
+            row = session.get(FeedRow, (channel_id, kind.value))
+            has_history = row is not None and row.last_success_at is not None
+            possible_gap = bool(items) and has_history and source_was_full and not known
+            if possible_gap:
+                self._note_gap(session, channel_id, kind, items, now)
             self._keep_entries(session, kind, items, known, now)
             session.commit()
-            return sum(e.video_id not in known for e in items)
+            return PollResult(sum(e.video_id not in known for e in items), possible_gap)
 
     @staticmethod
     def _keep_entries(
@@ -321,12 +340,21 @@ class Catalogue:
                 session.add(VideoFeedRow(video_id=entry.video_id, kind=kind.value))
 
     def record_missing(
-        self, channel_id: str, kind: FeedKind, now: datetime, retry: timedelta, *, probing: bool = False
+        self,
+        channel_id: str,
+        kind: FeedKind,
+        now: datetime,
+        retry: timedelta,
+        *,
+        probing: bool = False,
+        asked_at: datetime | None = None,
     ) -> FeedStatus:
         """YouTube said 404, every time it was asked. Only a full probe or repeated answers make a feed count as absent,
         because real feeds answer 404 for a while and then come back."""
         with Session(self._writer) as session:
             row = self._feed_row(session, channel_id, kind)
+            if asked_at and row.last_checked_at and asked_at <= row.last_checked_at:
+                return FeedStatus(row.status)  # the same answer again, from memory. Nothing new was learned
             row.failures += 1
             gone = probing or row.status == FeedStatus.ABSENT.value or row.failures >= ABSENT_AFTER
             row.status = FeedStatus.ABSENT.value if gone else FeedStatus.FAILING.value
@@ -343,7 +371,7 @@ class Catalogue:
             row.failures += 1
             row.status = FeedStatus.FAILING.value
             row.last_checked_at = now
-            row.next_check_at = now + min(retry * 2 ** (row.failures - 1), MAX_BACKOFF)
+            row.next_check_at = now + min(retry * 2 ** min(row.failures - 1, MAX_DOUBLINGS), MAX_BACKOFF)
             session.add(row)
             session.commit()
 

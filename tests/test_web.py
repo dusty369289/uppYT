@@ -276,6 +276,21 @@ def test_following_twice_is_a_message(followed):
     assert "already follow" in response.text
 
 
+def test_a_malformed_link_is_a_message_not_a_crash(site):
+    site.services()
+    response = site.post("/channels/lookup", data={"link": "https://[www.youtube.com/@x"})
+    assert response.status_code == 400
+    assert "isn't a YouTube link" in unescape(response.text)
+
+
+def test_a_seen_page_past_the_end_shows_what_is_left(followed):
+    """Putting back the last item on a later page said 'nothing marked' while others remained."""
+    followed.post("/seen/veri0000xxx")
+    page = followed.get("/seen?offset=50").text
+    assert "Nothing marked" not in page
+    assert "Veritasium video 0" in page
+
+
 def test_the_channel_list_and_page(followed):
     listing = followed.get("/channels").text
     assert "Veritasium" in listing
@@ -309,7 +324,7 @@ def test_clearing_a_channels_window(followed):
     ("data", "message"),
     [
         ({"window": "soon"}, "whole number"),
-        ({"window": "-1"}, "at least 1"),
+        ({"window": "-1"}, "between 1"),
         ({"priority": "urgent"}, "isn't a priority"),
     ],
 )

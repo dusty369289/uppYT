@@ -94,6 +94,8 @@ class Found:
 class Missing:
     """YouTube says this feed doesn't exist. Sometimes true, sometimes a hiccup, so one answer proves little."""
 
+    asked_at: datetime | None = None  # a remembered answer keeps this, so it can't be counted as new evidence
+
 
 @dataclass(frozen=True)
 class Failed:
@@ -129,12 +131,12 @@ class FeedClient:
         cached = self._cache.get((channel_id, kind))
         if cached and now - cached[0] < (CACHE_FOR if isinstance(cached[1], Found) else REMEMBER_MISSING_FOR):
             return cached[1]
-        answer = self._ask(feed_url(channel_id, kind), attempts or self._attempts)
+        answer = self._ask(feed_url(channel_id, kind), attempts or self._attempts, now)
         if not isinstance(answer, Failed):
             self._cache[(channel_id, kind)] = (now, answer)
         return answer
 
-    def _ask(self, url: str, attempts: int) -> FeedAnswer:
+    def _ask(self, url: str, attempts: int, now: datetime) -> FeedAnswer:
         unclear: str | None = None
         for attempt in range(attempts):
             if attempt:
@@ -153,4 +155,4 @@ class FeedClient:
                 return Failed("YouTube asked uppYT to slow down.")
             elif reply.status != 404:
                 unclear = f"YouTube answered {reply.status}."
-        return Failed(unclear) if unclear else Missing()
+        return Failed(unclear) if unclear else Missing(now)

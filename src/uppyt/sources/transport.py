@@ -50,8 +50,11 @@ class Transport(Protocol):
 
 
 def is_allowed(url: str, hosts: frozenset[str] = ALLOWED_HOSTS) -> bool:
-    parts = urlsplit(url)
-    return parts.scheme == "https" and parts.hostname in hosts and parts.port in (None, 443)
+    try:
+        parts = urlsplit(url)
+        return parts.scheme == "https" and parts.hostname in hosts and parts.port in (None, 443)
+    except ValueError:
+        return False
 
 
 class HttpTransport:
@@ -78,7 +81,7 @@ class HttpTransport:
         """With stop_after, stops reading once it has that many bytes, for when only the start of a page matters."""
         for _ in range(MAX_REDIRECTS + 1):
             if not is_allowed(url):
-                raise TransportError(f"uppYT only fetches from YouTube, so it won't open {urlsplit(url).hostname}.")
+                raise TransportError(f"uppYT only fetches from YouTube, so it won't open {url[:80]}.")
             self._pace()
             try:
                 request = self._client.build_request("GET", url)

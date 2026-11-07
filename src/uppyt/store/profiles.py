@@ -22,7 +22,7 @@ from tomlkit.exceptions import TOMLKitError
 from ..domain.errors import UserError
 from ..domain.feeds import TOGGLES, FeedKind
 from ..domain.models import CHANNEL_ID, Priority, Subscription, normalise_tags
-from ..domain.settings import Settings
+from ..domain.settings import MAX_WINDOW_DAYS, Settings
 from .files import LockTimeout, atomic_write, file_lock
 
 PROFILE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _-]{0,39}$")
@@ -107,7 +107,7 @@ class ProfileStore:
             else:
                 row = tomlkit.table()
                 if note:
-                    row.add(tomlkit.comment(note.replace("\n", " ")))
+                    row.add(tomlkit.comment("".join(c if c.isprintable() else " " for c in note)))
                 channels.add(subscription.channel_id, row)
             row["priority"] = subscription.priority.key
             row["feeds"] = sorted(subscription.feeds, key=TOGGLES.index)
@@ -191,7 +191,7 @@ def _subscription(channel_id: str, row) -> Subscription:
         priority=priority,
         feeds=frozenset(feeds),
         tags=normalise_tags([str(t) for t in row.get("tags", [])]),
-        window_days=int(window) if isinstance(window, int) and window > 0 else None,
+        window_days=window if isinstance(window, int) and 0 < window <= MAX_WINDOW_DAYS else None,
     )
 
 

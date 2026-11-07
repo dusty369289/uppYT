@@ -60,8 +60,12 @@ def channel_page_url(text: str) -> str:
         return f"https://www.youtube.com/{text}"
     if "://" not in text and text.split("/", 1)[0].lower() in YOUTUBE_HOSTS:
         text = "https://" + text
-    parts = urlsplit(text)
-    if parts.hostname not in YOUTUBE_HOSTS:
+    try:
+        parts = urlsplit(text)
+        hostname = parts.hostname
+    except ValueError:
+        raise ChannelInputError(f"That isn't a YouTube link. {HOW_TO}") from None
+    if hostname not in YOUTUBE_HOSTS:
         raise ChannelInputError(f"That isn't a YouTube link. {HOW_TO}")
     segments = [s for s in parts.path.split("/") if s]
     if not segments:

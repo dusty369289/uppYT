@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from typing import Protocol
 
 from .models import Priority, Subscription, Video
-from .settings import Settings
+from .settings import MAX_WINDOW_DAYS, Settings
 
 
 @dataclass(frozen=True)
@@ -27,7 +27,7 @@ class Candidate:
 @dataclass(frozen=True)
 class Ranked:
     candidate: Candidate
-    key: datetime
+    key: float  # seconds. Plain numbers, because a large penalty can reach dates a datetime can't hold
     repeats: int  # newer candidates from the same channel
 
 
@@ -52,22 +52,21 @@ class HeadStartRanker:
         for candidate in candidates:
             by_channel[candidate.video.channel_id].append(candidate)
         ranked = []
+        penalty = self.repeat_penalty.total_seconds()
         for group in by_channel.values():
             group.sort(key=lambda c: (-c.video.published_at.timestamp(), c.video.id))
             for repeats, candidate in enumerate(group):
-                key = (
-                    candidate.video.published_at + self.head_starts[candidate.priority] - self.repeat_penalty * repeats
-                )
+                head_start = self.head_starts[candidate.priority].total_seconds()
+                key = candidate.video.published_at.timestamp() + head_start - penalty * repeats
                 ranked.append(Ranked(candidate, key, repeats))
-        ranked.sort(
-            key=lambda r: (-r.key.timestamp(), -r.candidate.video.published_at.timestamp(), r.candidate.video.id)
-        )
+        ranked.sort(key=lambda r: (-r.key, -r.candidate.video.published_at.timestamp(), r.candidate.video.id))
         return ranked
 
 
 def window_for(subscription: Subscription, board_window_days: int) -> int:
     """A channel's own window wins over the board's."""
-    return subscription.window_days if subscription.window_days is not None else board_window_days
+    chosen = subscription.window_days if subscription.window_days is not None else board_window_days
+    return min(chosen, MAX_WINDOW_DAYS)
 
 
 def in_window(video: Video, window_days: int, now: datetime) -> bool:
