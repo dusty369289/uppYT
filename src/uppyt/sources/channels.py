@@ -27,6 +27,9 @@ _HANDLE = re.compile(
     r'|<link rel="alternate"[^>]*href="https://m\.youtube\.com/(@[^"/?]+)"'  # a bare link could be another channel's
 )
 _HANDLE_TEXT = re.compile(r"^@[\w.·-]{1,60}$")
+_BARE_HANDLE = re.compile(r"^[\w-]{1,60}$")  # no dots, so a host name never gets the handle hint
+# Short video links. Only named to give the right advice: they're never fetched, so they stay out of YOUTUBE_HOSTS.
+SHORT_LINK_HOSTS = frozenset({"youtu.be"})
 
 
 class ChannelInputError(UserError):
@@ -61,20 +64,26 @@ def channel_page_url(text: str) -> str:
         return f"https://www.youtube.com/channel/{text}"
     if _HANDLE_TEXT.match(text):
         return f"https://www.youtube.com/{text}"
-    if "://" not in text and text.split("/", 1)[0].lower() in YOUTUBE_HOSTS:
+    if _BARE_HANDLE.match(text):
+        raise ChannelInputError(f"That isn't a YouTube link. If it's a handle, put @ in front: @{text}")
+    if "://" not in text and text.split("/", 1)[0].lower() in YOUTUBE_HOSTS | SHORT_LINK_HOSTS:
         text = "https://" + text
     try:
         parts = urlsplit(text)
         hostname = parts.hostname
     except ValueError:
         raise ChannelInputError(f"That isn't a YouTube link. {HOW_TO}") from None
+    if hostname in SHORT_LINK_HOSTS:
+        raise ChannelInputError(f"That's a link to a video, not a channel. {HOW_TO}")
     if hostname not in YOUTUBE_HOSTS:
         raise ChannelInputError(f"That isn't a YouTube link. {HOW_TO}")
     segments = [s for s in parts.path.split("/") if s]
     if not segments:
         raise ChannelInputError(f"That's YouTube's home page. {HOW_TO}")
     first = segments[0]
-    if first in ("watch", "shorts", "live", "playlist"):
+    if first == "playlist":
+        raise ChannelInputError(f"That's a link to a playlist, not a channel. {HOW_TO}")
+    if first in ("watch", "shorts", "live"):
         raise ChannelInputError(f"That's a link to a video, not a channel. {HOW_TO}")
     if first.startswith("@"):
         return f"https://www.youtube.com/{first}"
