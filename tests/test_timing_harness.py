@@ -100,6 +100,72 @@ def test_a_real_slowdown_still_shows_on_a_busy_machine():
     assert [s.test for s in outcome.blips] == ["t0"]
 
 
+def test_runs_are_stored_in_real_seconds_on_a_busy_machine():
+    """They were stored divided by the run's load, so the records showed 4.4 s for a page taking 0.8 s."""
+    records = {f"t{i}": settled() for i in range(20)}
+    core.observe_run({f"t{i}": 2.5 for i in range(20)}, records, "c1")
+    assert records["t0"].runs[-1] == 2.5
+    assert records["t0"].baseline == 1.0
+
+
+def named(file: str, count: int) -> list[str]:
+    return [f"{file}::t{i}" for i in range(count)]
+
+
+def test_one_big_file_speeding_up_doesnt_make_the_others_look_slow():
+    """The bug that opened dozens of false reviews: 290 browser checks got faster, so everything else looked slower."""
+    big, others = named("big.py", 290), named("a.py", 6) + named("b.py", 6) + named("c.py", 6)
+    records = {test: settled() for test in [*big, *others]}
+    took = {**dict.fromkeys(big, 0.6), **dict.fromkeys(others, 1.0)}
+    outcome, load = core.observe_run(took, records, "c1")
+    assert load == 1.0
+    assert not outcome.blips
+    assert not outcome.opened
+
+
+def test_a_whole_file_changing_speed_is_reported_once(tmp_path):
+    big, others = named("big.py", 50), named("a.py", 6) + named("b.py", 6)
+    records = {test: settled() for test in [*big, *others]}
+    outcome, _ = core.observe_run({**dict.fromkeys(big, 3.0), **dict.fromkeys(others, 1.0)}, records, "c1")
+    assert list(outcome.shifted_files) == ["big.py"]
+    assert outcome.shifted_files["big.py"] == 3.0
+    assert not outcome.blips
+
+
+def test_a_slowdown_inside_a_file_still_shows():
+    tests = named("a.py", 10) + named("b.py", 10)
+    records = {test: settled() for test in tests}
+    took = dict.fromkeys(tests, 1.0)
+    took["a.py::t3"] = 3.0
+    outcome, _ = core.observe_run(took, records, "c1")
+    assert [s.test for s in outcome.blips] == ["a.py::t3"]
+
+
+def test_a_real_slowdown_inside_a_file_shows_on_a_busy_machine():
+    tests = named("a.py", 10) + named("b.py", 10)
+    records = {test: settled() for test in tests}
+    took = dict.fromkeys(tests, 2.0)
+    took["a.py::t3"] = 8.0
+    outcome, load = core.observe_run(took, records, "c1")
+    assert load == 2.0
+    assert [s.test for s in outcome.blips] == ["a.py::t3"]
+
+
+def test_a_busy_machine_doesnt_widen_a_tests_tolerance():
+    tests = named("a.py", 10) + named("b.py", 10)
+    records = {test: settled() for test in tests}
+    for _ in range(10):
+        core.observe_run(dict.fromkeys(tests, 2.0), records, "c1")
+    assert records["a.py::t0"].calm[-1] == 1.0
+
+
+def test_a_store_in_the_old_format_is_kept_aside_not_deleted(tmp_path):
+    path = tmp_path / "timings.json"
+    path.write_text('{"tests/x.py::t": {"runs": [4.4], "baseline": 4.4}}')
+    assert plugin.load(path) == {}
+    assert (tmp_path / "timings-old-format.json").exists()
+
+
 def test_too_few_tests_say_nothing_about_load():
     records = {f"t{i}": settled() for i in range(3)}
     assert core.load_factor({f"t{i}": 5.0 for i in range(3)}, records) == 1.0

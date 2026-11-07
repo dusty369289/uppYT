@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+from functools import cache
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from tests.ui.scenes import Scene, start_scene
 AXE = (Path(__file__).parent / "vendor" / "axe.min.js").read_text(encoding="utf-8")
 
 
+@cache
 def thumbnail(url: str) -> bytes:
     """Stands in for YouTube's pictures: the same colourful block for the same video, every run."""
     digest = hashlib.sha256(url.encode()).digest()

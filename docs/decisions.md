@@ -120,3 +120,15 @@ Neither was re-run away or loosened, and both limits stayed where they were.
 - **"The channel feed is reliable" was too strong.** During one spell it answered 2 in 20, and every other feed 0 in 20. The
   cause is unknown: an outage, or throttling after heavy testing that night. Live tests now skip, saying why, when YouTube
   gives no usable answer, since that says nothing about formats.
+
+## 2026-11-07: the timing harness was misreading tests
+
+Two wrong theories came first (2 s to 5 s swings, then slow thumbnails). Arithmetic found it: 311 tests in 77 s on 4 workers is
+about 1 s each, but the records said 4.4 s for a page that takes 0.8 s alone.
+- **Runs were stored divided by that run's load**, so the numbers weren't seconds, and old scaling carried forward.
+- **The load factor was a median over all tests.** Removing a wait sped up 290 browser checks, so it concluded the machine had
+  sped up, and every other test looked 1.3x to 1.8x slower. Those flags were false.
+- **Now:** real seconds are stored, the machine's speed is voted on per file, and a whole file shifting is reported as one line
+  rather than hidden or flooding the queue. `--timing-accept <file>.py` accepts all of it.
+- **The old store was moved aside to `timings-old-format.json`, not deleted**, because its numbers were on the wrong scale and
+  couldn't be compared. This is a format change for a real bug, not a way of clearing warnings. Baselines relearn in 5 runs.

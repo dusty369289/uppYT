@@ -13,18 +13,25 @@ from . import core, meter
 STORE = Path(__file__).parents[3] / ".test-review" / "timings.json"
 
 
+STORE_VERSION = 2  # 2: runs are real seconds. Before that they were scaled by each run's load, so can't be compared.
+
+
 def load(path: Path = STORE) -> dict[str, core.History]:
     try:
         raw = json.loads(path.read_text())
     except OSError, ValueError:
         return {}  # no history, or a damaged file: start learning again
-    return {test: core.History.from_dict(data) for test, data in raw.items()}
+    if raw.get("version") != STORE_VERSION:
+        os.replace(path, path.with_name(f"{path.stem}-old-format{path.suffix}"))  # kept, not deleted
+        return {}
+    return {test: core.History.from_dict(data) for test, data in raw["tests"].items()}
 
 
 def save(records: dict[str, core.History], path: Path = STORE) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps({t: r.to_dict() for t, r in records.items()}, indent=0, sort_keys=True))
+    tests = {t: r.to_dict() for t, r in records.items()}
+    tmp.write_text(json.dumps({"version": STORE_VERSION, "tests": tests}, indent=0, sort_keys=True))
     os.replace(tmp, path)
 
 
@@ -61,7 +68,9 @@ def _accept(pattern: str, reason: str) -> int:
         print('Say why the new time is right: --reason "..."')
         return 2
     records = load()
-    matches = [t for t, r in records.items() if pattern in t and r.review is not None]
+    # A whole file can shift together without any one test being flagged, so naming the file accepts all of it.
+    whole_file = pattern.endswith(".py")
+    matches = [t for t, r in records.items() if pattern in t and (r.review is not None or whole_file)]
     if not matches:
         print(f"No open review matches {pattern!r}.")
         return 1
@@ -120,6 +129,12 @@ class TimingPlugin:
     def _report(self, tr, config, records, outcome: core.Outcome, load_seen: float) -> None:
         if load_seen > 1.25 or load_seen < 0.8:
             tr.write_line(f"Timing: this whole run was {load_seen:.1f}x its usual speed, adjusted before judging.")
+        for name, shift in sorted(outcome.shifted_files.items()):
+            tr.write_line(
+                f"Timing: all of {name} ran {shift:.2f}x compared with the other files. If that's expected, accept it: "
+                f'pytest --timing-accept {name} --reason "..."',
+                yellow=True,
+            )
         for test in outcome.recovered:
             tr.write_line(f"Timing: {test} is back to normal, review closed.", green=True)
         if outcome.blips:

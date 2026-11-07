@@ -80,7 +80,7 @@ def run(tmp_path, *extra) -> dict[str, float]:
     )  # fmt: skip
     assert done.returncode == 0, done.stdout + done.stderr
     stored = json.loads((tmp_path / "store.json").read_text())
-    return {name.split("::")[1]: record["runs"][-1] for name, record in stored.items()}
+    return {name.split("::")[1]: record["runs"][-1] for name, record in stored["tests"].items()}
 
 
 def test_shared_setup_isnt_charged_to_the_test_that_triggered_it(tmp_path):
