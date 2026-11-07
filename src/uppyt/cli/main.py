@@ -318,12 +318,26 @@ def refresh(
     force: Annotated[
         bool, typer.Option("--force", help="Check now, except anything checked in the last 15 minutes")
     ] = False,
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Only print when there's something new or something wrong")
+    ] = False,
+    as_json: JsonOption = False,
 ) -> None:
-    """Check feeds for new videos. Works well from cron or a timer."""
+    """Check feeds for new videos. Works well from cron or a timer.
+
+    Exits 2 when YouTube's feeds are down or every feed checked failed.
+    """
     session = _session(ctx)
     from ..services.refresh import RefreshService
 
-    typer.echo(RefreshService(session.runtime).run(force=force).summary)
+    report = RefreshService(session.runtime).run(force=force)
+    broken = report.youtube_down or (report.checked > 0 and report.failed >= report.checked)
+    if as_json:
+        typer.echo(render.to_json(report))
+    elif not quiet or broken or report.new_videos or report.gaps or report.failed:
+        typer.echo(report.summary)
+    if broken:
+        raise typer.Exit(2)
 
 
 @implements("cli", "refresh.status")

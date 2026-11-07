@@ -10,6 +10,7 @@ from uppyt.cli.main import Session, app
 from uppyt.domain.feeds import FeedKind
 from uppyt.domain.models import Priority
 from uppyt.services.runtime import Paths, Runtime
+from uppyt.services.views import RefreshReport
 
 
 class Cli:
@@ -187,6 +188,38 @@ def test_refresh_and_status(cli):
     assert "Checked 1 feed" in cli("refresh")
     assert "1 channel, 1 feed working" in cli("status")
     assert json.loads(cli("status", "--json"))["active_feeds"] == 1
+
+
+def _refresh_returns(monkeypatch, report):
+    monkeypatch.setattr("uppyt.services.refresh.RefreshService.run", lambda self, *, force=False: report)
+
+
+@pytest.mark.parametrize(
+    ("report", "code", "speaks_when_quiet"),
+    [
+        (RefreshReport(), 0, False),
+        (RefreshReport(checked=3), 0, False),
+        (RefreshReport(skipped_busy=True), 0, False),
+        (RefreshReport(checked=3, new_videos=2), 0, True),
+        (RefreshReport(checked=3, gaps=1), 0, True),
+        (RefreshReport(checked=3, failed=1), 0, True),
+        (RefreshReport(checked=3, failed=3), 2, True),
+        (RefreshReport(youtube_down=True), 2, True),
+    ],
+)
+def test_refresh_for_cron(cli, monkeypatch, report, code, speaks_when_quiet):
+    """--quiet only speaks when there's news or trouble, and a broken run exits 2 so cron can tell."""
+    _refresh_returns(monkeypatch, report)
+    assert cli("refresh", code=code).strip() == report.summary
+    assert cli("refresh", "--quiet", code=code).strip() == (report.summary if speaks_when_quiet else "")
+    data = json.loads(cli("refresh", "--json", code=code))
+    assert data["new_videos"] == report.new_videos
+    assert data["youtube_down"] == report.youtube_down
+
+
+def test_quiet_refresh_is_silent_when_nothing_happened(cli):
+    cli("channels", "add", "@veritasium")
+    assert cli("refresh", "--quiet") == ""
 
 
 def test_settings(cli):
