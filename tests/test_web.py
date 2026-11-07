@@ -226,7 +226,11 @@ def test_marking_something_unknown_says_so(followed):
     response = followed.post("/seen/nope")
     assert response.status_code == 404
     assert "doesn't know" in unescape(response.text)
-    assert "doesn't know" in unescape(followed.post("/seen/nope", headers=HTMX).text)
+    toast = followed.post("/seen/nope", headers=HTMX)
+    assert toast.status_code == 200  # htmx won't swap an error status, so the toast would never show
+    assert toast.headers["HX-Reswap"] == "none"
+    assert 'class="toast"' in toast.text
+    assert "doesn't know" in unescape(toast.text)
 
 
 def test_the_seen_page_lists_and_restores(followed):
