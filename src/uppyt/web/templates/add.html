@@ -8,9 +8,10 @@
   <form class="stack" method="post" action="/channels/lookup">
     <div class="stack">
       <label for="link">Channel link</label>
-      <input class="input" id="link" name="link" type="text" inputmode="url" value="{{ link }}" placeholder="https://www.youtube.com/@name" autocomplete="off" required>
-      <p class="hint">Links with @name, /channel/, /c/ or /user/ all work, or just the @name.</p>
-      {% if problem %}<p class="problem" role="alert">{{ problem }}</p>{% endif %}
+      <input class="input" id="link" name="link" type="text" inputmode="url" value="{{ link }}" placeholder="https://www.youtube.com/@name" autocomplete="off" required
+             {% if problem %}aria-invalid="true" aria-describedby="link-hint link-problem"{% else %}aria-describedby="link-hint"{% endif %}>
+      <p class="hint" id="link-hint">Links with @name, /channel/, /c/ or /user/ all work, or just the @name.</p>
+      {% if problem %}<p class="problem" id="link-problem" role="alert">{{ problem }}</p>{% endif %}
     </div>
     <div class="cluster">
       <button class="button" type="submit">Find channel</button>
@@ -40,7 +41,7 @@
         {% endfor %}
       </div>
       <label class="label" for="tags">Tags</label>
-      <div class="fields-value"><input class="input" id="tags" name="tags" type="text" autocomplete="off"><p class="hint">Separate with commas.</p></div>
+      <div class="fields-value"><input class="input" id="tags" name="tags" type="text" autocomplete="off" aria-describedby="tags-hint"><p class="hint" id="tags-hint">Separate with commas.</p></div>
     </div>
     <p class="prose">History starts today. YouTube's feeds list only each channel's newest 15 videos, so older ones can't be fetched.</p>
     <div class="cluster"><button class="button" type="submit">Follow {{ preview.channel.name }}</button><a href="/channels/add">Choose another</a></div>

@@ -17,10 +17,10 @@
     <div class="fields">
       <label class="label" for="priority">Priority</label>
       <div class="fields-value">
-        <select class="select" id="priority" name="priority">
+        <select class="select" id="priority" name="priority" aria-describedby="priority-hint">
           {% for level in Priority | reverse %}<option value="{{ level.key }}" {% if level == detail.subscription.priority %}selected{% endif %}>{{ level.label }}</option>{% endfor %}
         </select>
-        <p class="hint">Currently counts as {{ "%g" | format(detail.head_start_days) }} days newer on your board.</p>
+        <p class="hint" id="priority-hint">Currently counts as {{ "%g" | format(detail.head_start_days) }} days newer on your board.</p>
       </div>
       <span class="label" id="feeds-label">Feeds</span>
       <div class="checks fields-value" role="group" aria-labelledby="feeds-label">
@@ -29,9 +29,9 @@
         {% endfor %}
       </div>
       <label class="label" for="tags">Tags</label>
-      <div class="fields-value"><input class="input" id="tags" name="tags" type="text" value="{{ detail.subscription.tags | join(', ') }}" autocomplete="off"><p class="hint">Separate with commas.</p></div>
+      <div class="fields-value"><input class="input" id="tags" name="tags" type="text" value="{{ detail.subscription.tags | join(', ') }}" autocomplete="off" aria-describedby="tags-hint"><p class="hint" id="tags-hint">Separate with commas.</p></div>
       <label class="label" for="window">Own window</label>
-      <div class="fields-value"><input class="input input--number" id="window" name="window" type="text" inputmode="numeric" value="{{ detail.subscription.window_days or '' }}" autocomplete="off"><p class="hint">Days. Leave empty to follow the board.</p></div>
+      <div class="fields-value"><input class="input input--number" id="window" name="window" type="text" inputmode="numeric" value="{{ detail.subscription.window_days or '' }}" autocomplete="off" aria-describedby="window-hint"><p class="hint" id="window-hint">Days. Leave empty to follow the board.</p></div>
     </div>
     <div class="cluster"><button class="button" type="submit">Save changes</button><a class="push" href="/channels/{{ detail.channel.id }}/remove">Stop following</a></div>
   </form>

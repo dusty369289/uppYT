@@ -19,8 +19,8 @@
     <h2>Add a profile</h2>
     <div class="stack">
       <label for="name">Name</label>
-      <input class="input" id="name" name="name" type="text" value="{{ typed | default('') }}" autocomplete="off" required>
-      {% if problem %}<p class="problem" role="alert">{{ problem }}</p>{% endif %}
+      <input class="input" id="name" name="name" type="text" value="{{ typed | default('') }}" autocomplete="off" required{% if problem %} aria-invalid="true" aria-describedby="name-problem"{% endif %}>
+      {% if problem %}<p class="problem" id="name-problem" role="alert">{{ problem }}</p>{% endif %}
     </div>
     <div><button class="button" type="submit">Create profile</button></div>
     <p class="prose">Profiles keep lists apart. They aren't private: anyone who can open uppYT can open any profile.</p>

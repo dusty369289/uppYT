@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from html import unescape
+from html.parser import HTMLParser
 
 import pytest
 from fastapi.testclient import TestClient
@@ -599,3 +600,56 @@ def test_unknown_pages_are_friendly(followed):
 def test_pages_are_compressed(followed):
     response = followed.get("/", headers={"accept-encoding": "gzip"})
     assert response.headers.get("content-encoding") == "gzip"
+
+
+# Accessibility of forms
+
+
+class _Fields(HTMLParser):
+    def __init__(self, html: str):
+        super().__init__()
+        self.ids: set[str] = set()
+        self.fields: dict[str, dict[str, str | None]] = {}
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        found = dict(attrs)
+        if found.get("id"):
+            self.ids.add(found["id"])
+        if tag in ("input", "select", "textarea") and found.get("id"):
+            self.fields[found["id"]] = found
+
+
+def described(html: str) -> dict[str, dict[str, str | None]]:
+    """Each field by id, after checking every aria-describedby points at something on the page."""
+    page = _Fields(html)
+    for field in page.fields.values():
+        for target in (field.get("aria-describedby") or "").split():
+            assert target in page.ids, f"{field['id']} is described by {target}, which isn't on the page"
+    return page.fields
+
+
+def test_hints_are_tied_to_their_fields(followed):
+    channel = described(followed.get(f"/channels/{SECOND}").text)
+    for name in ("priority", "tags", "window"):
+        assert channel[name].get("aria-describedby"), name
+    settings = described(followed.get("/settings").text)
+    for name in ("window_days", "repeat_penalty_days"):
+        assert settings[name].get("aria-describedby"), name
+    add = described(followed.get("/channels/add").text)
+    assert add["link"].get("aria-describedby")
+    assert "aria-invalid" not in add["link"]
+    preview = described(followed.post("/channels/lookup", data={"link": "@mkbhd"}).text)
+    assert preview["tags"].get("aria-describedby")
+
+
+def test_a_single_field_problem_marks_the_field(site):
+    welcome = described(site.post("/profiles", data={"name": "../evil"}).text)
+    assert welcome["name"].get("aria-invalid") == "true"
+    assert len(welcome["name"]["aria-describedby"].split()) == 1
+    site.services()
+    profiles = described(site.post("/profiles", data={"name": "../evil"}).text)
+    assert profiles["name"].get("aria-invalid") == "true"
+    add = described(site.post("/channels/lookup", data={"link": "https://evil.example/x"}).text)
+    assert add["link"].get("aria-invalid") == "true"
+    assert len(add["link"]["aria-describedby"].split()) == 2  # the hint and the problem
