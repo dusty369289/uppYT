@@ -53,6 +53,7 @@ class FeedRow(SQLModel, table=True):
     kind: str = Field(primary_key=True)
     status: str
     failures: int = 0
+    missing_in_a_row: int = 0  # 404s while the channel's other feed answered. During an outage, a 404 proves nothing
     last_checked_at: datetime | None = _when()
     last_success_at: datetime | None = _when()
     next_check_at: datetime | None = _when()
@@ -114,6 +115,7 @@ MIGRATIONS: tuple[str, ...] = (
     CREATE TABLE video_feed (video_id VARCHAR NOT NULL, kind VARCHAR NOT NULL, PRIMARY KEY (video_id, kind));
     CREATE TABLE meta (key VARCHAR NOT NULL PRIMARY KEY, value VARCHAR NOT NULL);
     """,
+    "ALTER TABLE feed ADD COLUMN missing_in_a_row INTEGER NOT NULL DEFAULT 0;",
 )
 SCHEMA_VERSION = len(MIGRATIONS)
 LOCK_KEY = "refresh_lock"
@@ -260,6 +262,7 @@ class Catalogue:
                 row.history_from = min((e.published_at for e in feed.entries), default=None)
             row.status = FeedStatus.ACTIVE.value
             row.failures = 0
+            row.missing_in_a_row = 0
             row.last_checked_at = now
             row.last_success_at = now
             row.next_check_at = next_check
@@ -356,7 +359,8 @@ class Catalogue:
             if asked_at and row.last_checked_at and asked_at <= row.last_checked_at:
                 return FeedStatus(row.status)  # the same answer again, from memory. Nothing new was learned
             row.failures += 1
-            gone = probing or row.status == FeedStatus.ABSENT.value or row.failures >= ABSENT_AFTER
+            row.missing_in_a_row += 1
+            gone = probing or row.status == FeedStatus.ABSENT.value or row.missing_in_a_row >= ABSENT_AFTER
             row.status = FeedStatus.ABSENT.value if gone else FeedStatus.FAILING.value
             row.last_checked_at = now
             row.next_check_at = now + (RECHECK_ABSENT if gone else retry)

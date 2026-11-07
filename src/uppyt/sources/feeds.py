@@ -126,10 +126,14 @@ class FeedClient:
         self._attempts = attempts
         self._cache: dict[tuple[str, FeedKind], tuple[datetime, FeedAnswer]] = {}
 
-    def fetch(self, channel_id: str, kind: FeedKind, *, attempts: int | None = None) -> FeedAnswer:
+    def fetch(
+        self, channel_id: str, kind: FeedKind, *, attempts: int | None = None, trust_missing: bool = True
+    ) -> FeedAnswer:
+        """With trust_missing off, a remembered 404 won't do: it's the answering that's in question."""
         now = self._clock()
         cached = self._cache.get((channel_id, kind))
-        if cached and now - cached[0] < (CACHE_FOR if isinstance(cached[1], Found) else REMEMBER_MISSING_FOR):
+        usable = cached and (trust_missing or isinstance(cached[1], Found))
+        if usable and now - cached[0] < (CACHE_FOR if isinstance(cached[1], Found) else REMEMBER_MISSING_FOR):
             return cached[1]
         answer = self._ask(feed_url(channel_id, kind), attempts or self._attempts, now)
         if not isinstance(answer, Failed):

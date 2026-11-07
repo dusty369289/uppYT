@@ -48,8 +48,34 @@ class RefreshService:
             return state.next_check_at is None or state.next_check_at <= now  # forcing shouldn't pester absent feeds
         return force or state.next_check_at is None or state.next_check_at <= now
 
+    def _youtube_is_down(self, states: list[FeedState]) -> bool | None:
+        """None if nothing suggests a problem. Otherwise asks once, using the channel feed that worked most recently.
+
+        Worked out from what's stored, since a cron job starts fresh each time. During an outage, a check costs this one
+        request, and it notices the end of one within a check, however long the outage lasted."""
+        failing = [s for s in states if s.status is FeedStatus.FAILING and s.last_checked_at]
+        if len(failing) < self._runtime.tuning.struggling_after:
+            return None
+        worked = [s for s in states if s.last_success_at]
+        latest_failure = max(s.last_checked_at for s in failing if s.last_checked_at)
+        if not worked:
+            return None
+        witness = max(worked, key=lambda s: s.last_success_at or latest_failure)
+        if witness.last_success_at and witness.last_success_at >= latest_failure:
+            return None
+        answer = self._runtime.feeds.fetch(witness.channel_id, FeedKind.ALL, attempts=1, trust_missing=False)
+        return not isinstance(answer, Found)
+
     def _apply(
-        self, channel_id: str, kind: FeedKind, answer: FeedAnswer, now: datetime, report: RefreshReport, attempts: int
+        self,
+        channel_id: str,
+        kind: FeedKind,
+        answer: FeedAnswer,
+        now: datetime,
+        report: RefreshReport,
+        attempts: int,
+        *,
+        absent: bool = False,
     ) -> None:
         catalogue = self._runtime.catalogue
         tuning = self._runtime.tuning
@@ -64,15 +90,21 @@ class RefreshService:
             log.warning("Feed %s %s: %s", channel_id, kind.value, answer.reason)
             catalogue.record_failure(channel_id, kind, now, tuning.retry_after)
             self._fill_in(channel_id, kind, now, report, attempts)
+        elif not absent and not self._channel_answers(channel_id, attempts):
+            report.failed += 1  # an outage's 404 is byte for byte the same as a real one, so this says nothing
+            catalogue.record_failure(channel_id, kind, now, tuning.retry_after)
         else:
             status = catalogue.record_missing(channel_id, kind, now, tuning.retry_after, asked_at=answer.asked_at)
             report.failed += int(status is FeedStatus.FAILING)
             if status is FeedStatus.FAILING:
                 self._fill_in(channel_id, kind, now, report, attempts)
 
+    def _channel_answers(self, channel_id: str, attempts: int) -> bool:
+        return isinstance(self._runtime.feeds.fetch(channel_id, FeedKind.ALL, attempts=attempts), Found)
+
     def _fill_in(self, channel_id: str, kind: FeedKind, now: datetime, report: RefreshReport, attempts: int) -> None:
-        """A flaky feed shouldn't cost anyone videos. The plain channel feed is reliable, and its links tell Shorts from
-        the rest, so it covers Videos and Shorts until their own feeds answer again."""
+        """A flaky feed shouldn't cost anyone videos. The plain channel feed fails less often, and its links tell Shorts
+        from the rest, so it covers Videos and Shorts until their own feeds answer again."""
         if kind not in (FeedKind.VIDEOS, FeedKind.SHORTS):
             return
         answer = self._runtime.feeds.fetch(channel_id, FeedKind.ALL, attempts=attempts)
@@ -117,8 +149,10 @@ class RefreshService:
             answers = pool.map(fetch, targets)
             for done, ((channel_id, kind), answer) in enumerate(zip(targets, answers, strict=True), start=1):
                 fill_in_attempts = 1 if failures_in_a_row >= tuning.struggling_after else tuning.recheck_attempts
+                state = states.get((channel_id, kind))
+                absent = state is not None and state.status is FeedStatus.ABSENT
                 try:
-                    self._apply(channel_id, kind, answer, now, report, fill_in_attempts)
+                    self._apply(channel_id, kind, answer, now, report, fill_in_attempts, absent=absent)
                 except Exception:  # one feed's trouble must not cost every feed after it this run
                     log.exception("Couldn't save feed %s %s", channel_id, kind.value)
                     report.failed += 1
@@ -136,8 +170,16 @@ class RefreshService:
         try:
             wanted = self._wanted()
             states = catalogue.feed_states({channel_id for channel_id, _ in wanted})
-            due = sorted(w for w in wanted if self._is_due(states.get(w), now, force))
-            return self.poll(due, progress)
+            down = self._youtube_is_down([states[w] for w in wanted if w in states])
+            if down:
+                return RefreshReport(youtube_down=True)
+
+            def wanted_now(key: tuple[str, FeedKind]) -> bool:
+                state = states.get(key)
+                back = down is False and state is not None and state.status is FeedStatus.FAILING
+                return back or self._is_due(state, now, force)  # backoff was for the outage, which has ended
+
+            return self.poll(sorted(filter(wanted_now, wanted)), progress)
         finally:
             catalogue.release_lock(owner)
 

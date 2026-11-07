@@ -156,11 +156,16 @@ class RefreshReport:
     failed: int = 0
     gaps: int = 0
     skipped_busy: bool = False
+    youtube_down: bool = False
 
     @property
     def summary(self) -> str:
         if self.skipped_busy:
             return "Another uppYT is already refreshing."
+        if self.youtube_down:
+            return (
+                "YouTube's feeds aren't answering just now. uppYT keeps checking, and will catch up when they're back."
+            )
         if not self.checked:
             return "Everything was checked recently."
         text = f"Checked {self.checked} feed{'s' if self.checked != 1 else ''}, {self.new_videos} new."

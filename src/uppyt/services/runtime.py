@@ -64,7 +64,7 @@ class Tuning:
 
     refresh_every: timedelta = timedelta(hours=1)
     never_within: timedelta = timedelta(minutes=15)  # YouTube's max-age
-    retry_after: timedelta = timedelta(minutes=5)  # a flaky feed's bad spell was measured at about 40 seconds
+    retry_after: timedelta = timedelta(minutes=5)  # one feed's bad spell is often under a minute. Outages last hours
     lock_lease: timedelta = timedelta(minutes=30)
     workers: int = 4
     struggling_after: int = 3  # failed feeds in a row before YouTube counts as having a bad spell
