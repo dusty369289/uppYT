@@ -48,23 +48,28 @@ class RefreshService:
             return state.next_check_at is None or state.next_check_at <= now  # forcing shouldn't pester absent feeds
         return force or state.next_check_at is None or state.next_check_at <= now
 
-    def _youtube_is_down(self, states: list[FeedState]) -> bool | None:
-        """None if nothing suggests a problem. Otherwise asks once, using the channel feed that worked most recently.
+    def _youtube_is_down(self, states: list[FeedState], *, outage_noticed: bool) -> bool | None:
+        """None if nothing suggests a problem. Otherwise asks the channel feed that worked most recently, once.
 
         Worked out from what's stored, since a cron job starts fresh each time. During an outage, a check costs this one
-        request, and it notices the end of one within a check, however long the outage lasted."""
+        request. Outages are on and off, and the channel feed answered about 1 in 10 during one, so an outage already
+        noticed is only over once a failing playlist feed answers too. That costs a second request, only then."""
         failing = [s for s in states if s.status is FeedStatus.FAILING and s.last_checked_at]
-        if len(failing) < self._runtime.tuning.struggling_after:
-            return None
         worked = [s for s in states if s.last_success_at]
+        if not worked or not failing or len(failing) < min(self._runtime.tuning.struggling_after, len(worked)):
+            return None  # with only a feed or two, every one of them failing is enough to ask
         latest_failure = max(s.last_checked_at for s in failing if s.last_checked_at)
-        if not worked:
-            return None
         witness = max(worked, key=lambda s: s.last_success_at or latest_failure)
-        if witness.last_success_at and witness.last_success_at >= latest_failure:
+        if not outage_noticed and witness.last_success_at and witness.last_success_at >= latest_failure:
             return None
-        answer = self._runtime.feeds.fetch(witness.channel_id, FeedKind.ALL, attempts=1, trust_missing=False)
-        return not isinstance(answer, Found)
+        feeds = self._runtime.feeds
+        if not isinstance(feeds.fetch(witness.channel_id, FeedKind.ALL, attempts=1, fresh=True), Found):
+            return True
+        if outage_noticed:
+            second = max((s for s in failing if s.last_success_at), key=lambda s: s.last_success_at, default=None)
+            if second and not isinstance(feeds.fetch(second.channel_id, second.kind, attempts=1, fresh=True), Found):
+                return True
+        return False
 
     def _apply(
         self,
@@ -138,10 +143,13 @@ class RefreshService:
             nonlocal failures_in_a_row
             state = states.get(target)
             absent = state is not None and state.status is FeedStatus.ABSENT
-            attempts = tuning.recheck_attempts if absent else None
+            long_failing = state is not None and state.status is FeedStatus.FAILING and state.failures >= 3
+            attempts = tuning.recheck_attempts if absent or long_failing else None  # six tries each time is a lot
             if failures_in_a_row >= tuning.struggling_after:
                 attempts = 1  # YouTube is struggling, so the rest get one polite try and wait for the next check
-            answer = self._runtime.feeds.fetch(*target, attempts=attempts)
+            worked = state is not None and state.last_success_at is not None
+            # a remembered 404 for a feed that has worked may be from an outage that has since ended
+            answer = self._runtime.feeds.fetch(*target, attempts=attempts, trust_missing=not worked)
             failures_in_a_row = 0 if isinstance(answer, Found) else failures_in_a_row + 1
             return answer
 
@@ -170,14 +178,19 @@ class RefreshService:
         try:
             wanted = self._wanted()
             states = catalogue.feed_states({channel_id for channel_id, _ in wanted})
-            down = self._youtube_is_down([states[w] for w in wanted if w in states])
+            noticed = catalogue.outage_since() is not None
+            down = self._youtube_is_down([states[w] for w in wanted if w in states], outage_noticed=noticed)
             if down:
+                catalogue.note_outage(now)
                 return RefreshReport(youtube_down=True)
+            ended = noticed
+            if ended:
+                catalogue.clear_outage()
 
             def wanted_now(key: tuple[str, FeedKind]) -> bool:
                 state = states.get(key)
-                back = down is False and state is not None and state.status is FeedStatus.FAILING
-                return back or self._is_due(state, now, force)  # backoff was for the outage, which has ended
+                back = ended and state is not None and state.status is FeedStatus.FAILING
+                return back or self._is_due(state, now, force)  # backoff was for an outage, which has ended
 
             return self.poll(sorted(filter(wanted_now, wanted)), progress)
         finally:

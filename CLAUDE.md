@@ -67,7 +67,7 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
   never overrides a `--profile` that was typed.
 - **Seen** is explicit only: opening a video never marks it seen. Always undoable, with a Seen page to restore from.
 - **Refresh:** on launch, hourly while running, plus `uppyt refresh` for cron. Never re-fetch a feed within 15 minutes
-  (`max-age=900`). One 404 doesn't make a feed absent. Enabled feeds believed absent are rechecked daily, lightly.
+  (`max-age=900`). One 404 doesn't make a feed absent. A feed that has worked is never called absent from failures: it retries with backoff capped at an hour. Feeds that never worked go absent after 3 404s and are rechecked daily, lightly.
 - **Security:** binds to 127.0.0.1 by default. Profiles aren't private. Only YouTube hosts can be fetched. Feed text is
   untrusted: Jinja autoescape on the web, Textual markup off for titles (`[bold]` in a title must stay literal).
 
@@ -102,6 +102,8 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
   answers 200, 404 or 500 (Shorts failed 8 in 12), or nearly everything fails: on 2026-11-06/07 it went on for about 7 hours.
   It ended at about 08:00 UTC, midnight Pacific, seen from when seven channels' cached answers were made. That's one night, so
   a daily reset is only a lead. Other apps report the same since December 2025. DNS isn't it: six servers gave the same addresses.
+- **Outage behaviour is tested against a pretend YouTube** (`tests/youtube_sim.py`) built from these measurements. Change the
+  measurements there when new ones come in, and add a night to `tests/test_outage_nights.py`.
 - **An outage's 404 is byte for byte a real 404.** So a 404 only counts towards "absent" when the channel feed answers. If
   several feeds are failing, a check first asks one channel feed once, and stops there if it fails. Tests with recordings
   can't show any of this: `tests/test_outage.py` simulates it.

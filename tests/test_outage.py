@@ -133,14 +133,23 @@ def test_check_now_notices_recovery_straight_away(scene):
     assert not scene.app.refresh.run(force=True).youtube_down
 
 
-def test_a_feed_that_really_is_missing_still_gets_called_absent(scene):
-    """The channel feed answering shows the service is up, so this 404 means something."""
+def test_a_feed_that_worked_and_then_vanished_is_checked_hourly_not_called_absent(scene):
+    """An outage's 404 is byte for byte a real one, so failures alone never make a working feed absent. It's still
+    asked about no more often than a healthy feed, and the other channel carries on."""
     scene.follow_both()
     url = feed_url(MKBHD, FeedKind.LIVE)
     scene.transport.routes[url] = Response(404, b"", "text/html", url)
     scene.checks(hours=2)
-    assert scene.statuses()[(MKBHD, FeedKind.LIVE)] is FeedStatus.ABSENT
+    asked = len([u for u in scene.transport.requests if u == url])
+    scene.checks(hours=3)
+    assert len([u for u in scene.transport.requests if u == url]) - asked <= 3 * 2
+    assert scene.statuses()[(MKBHD, FeedKind.LIVE)] is FeedStatus.FAILING
     assert scene.statuses()[(SECOND, FeedKind.VIDEOS)] is FeedStatus.ACTIVE
+
+
+def test_a_feed_that_never_worked_is_still_called_absent(scene):
+    scene.follow_both()
+    assert scene.statuses()[(SECOND, FeedKind.LIVE)] is FeedStatus.ABSENT  # Veritasium has no Live feed at all
 
 
 def test_one_404_after_an_outage_isnt_enough_for_absent(scene):
@@ -175,7 +184,7 @@ def test_a_deleted_channel_isnt_asked_about_every_five_minutes(scene):
     asked = len(scene.transport.requests)
     scene.checks(hours=3)
     about_mkbhd = [u for u in scene.transport.requests[asked:] if MKBHD[2:] in u]
-    assert len(about_mkbhd) < 40
+    assert len(about_mkbhd) < 30
 
 
 def test_a_few_failing_feeds_dont_stop_the_others_being_checked(scene):

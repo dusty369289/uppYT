@@ -122,6 +122,10 @@ LOCK_KEY = "refresh_lock"
 ABSENT_AFTER = 3  # 404s in a row before a feed that used to work counts as gone
 RECHECK_ABSENT = timedelta(days=1)  # only enabled feeds get checked, and "absent" might be YouTube being flaky
 MAX_BACKOFF = timedelta(days=1)
+# A feed that has answered before is never called absent from failures alone: outages last hours, and an outage's 404 is
+# byte for byte a real one. Instead it's retried with backoff, but never less often than a healthy feed is checked.
+WORKED_MAX_BACKOFF = timedelta(hours=1)
+OUTAGE_KEY = "youtube_down_since"
 MAX_DOUBLINGS = 16  # past this the wait is at its maximum anyway, and the number would eventually overflow
 
 
@@ -249,27 +253,31 @@ class Catalogue:
     # Feeds
 
     def feed_states(self, channel_ids: Iterable[str]) -> dict[tuple[str, FeedKind], FeedState]:
+        """Read on every check, so as plain columns: building ORM objects made this most of a refresh's time."""
         wanted = list(channel_ids)
+        columns = (
+            FeedRow.channel_id, FeedRow.kind, FeedRow.status, FeedRow.failures, FeedRow.last_checked_at,
+            FeedRow.last_success_at, FeedRow.next_check_at, FeedRow.history_from, FeedRow.history_complete,
+        )  # fmt: skip
         with Session(self._engine) as session:
-            rows = session.exec(select(FeedRow).where(col(FeedRow.channel_id).in_(wanted))).all()
-            gaps: dict[tuple[str, str], int] = {}
-            for gap in session.exec(select(GapRow).where(col(GapRow.channel_id).in_(wanted))).all():
-                gaps[(gap.channel_id, gap.kind)] = gaps.get((gap.channel_id, gap.kind), 0) + 1
-            return {
-                (r.channel_id, FeedKind(r.kind)): FeedState(
-                    channel_id=r.channel_id,
-                    kind=FeedKind(r.kind),
-                    status=FeedStatus(r.status),
-                    failures=r.failures,
-                    last_checked_at=r.last_checked_at,
-                    last_success_at=r.last_success_at,
-                    next_check_at=r.next_check_at,
-                    history_from=r.history_from,
-                    history_complete=r.history_complete,
-                    gaps=gaps.get((r.channel_id, r.kind), 0),
-                )
-                for r in rows
-            }
+            rows = session.exec(select(*columns).where(col(FeedRow.channel_id).in_(wanted))).all()
+            counted = select(GapRow.channel_id, GapRow.kind, func.count()).where(col(GapRow.channel_id).in_(wanted))
+            gaps = {(c, k): n for c, k, n in session.exec(counted.group_by(GapRow.channel_id, GapRow.kind)).all()}
+        return {
+            (channel, FeedKind(kind)): FeedState(
+                channel_id=channel,
+                kind=FeedKind(kind),
+                status=FeedStatus(status),
+                failures=failures,
+                last_checked_at=checked,
+                last_success_at=succeeded,
+                next_check_at=due,
+                history_from=since,
+                history_complete=complete,
+                gaps=gaps.get((channel, kind), 0),
+            )
+            for channel, kind, status, failures, checked, succeeded, due, since, complete in rows
+        }
 
     def _feed_row(self, session: Session, channel_id: str, kind: FeedKind) -> FeedRow:
         row = session.get(FeedRow, (channel_id, kind.value))
@@ -404,10 +412,13 @@ class Catalogue:
                 return FeedStatus(row.status)  # the same answer again, from memory. Nothing new was learned
             row.failures += 1
             row.missing_in_a_row += 1
-            gone = probing or row.status == FeedStatus.ABSENT.value or row.missing_in_a_row >= ABSENT_AFTER
+            worked = row.last_success_at is not None
+            gone = probing or (
+                not worked and (row.status == FeedStatus.ABSENT.value or row.missing_in_a_row >= ABSENT_AFTER)
+            )
             row.status = FeedStatus.ABSENT.value if gone else FeedStatus.FAILING.value
             row.last_checked_at = now
-            row.next_check_at = now + (RECHECK_ABSENT if gone else retry)
+            row.next_check_at = now + (RECHECK_ABSENT if gone else self._backoff(row, retry))
             status = FeedStatus(row.status)
             session.add(row)
             session.commit()
@@ -419,9 +430,14 @@ class Catalogue:
             row.failures += 1
             row.status = FeedStatus.FAILING.value
             row.last_checked_at = now
-            row.next_check_at = now + min(retry * 2 ** min(row.failures - 1, MAX_DOUBLINGS), MAX_BACKOFF)
+            row.next_check_at = now + self._backoff(row, retry)
             session.add(row)
             session.commit()
+
+    @staticmethod
+    def _backoff(row: FeedRow, retry: timedelta) -> timedelta:
+        longest = WORKED_MAX_BACKOFF if row.last_success_at is not None else MAX_BACKOFF
+        return min(retry * 2 ** min(max(row.failures - 1, 0), MAX_DOUBLINGS), longest)
 
     def make_due(self, channel_id: str, kind: FeedKind, now: datetime) -> None:
         with Session(self._writer) as session:
@@ -490,6 +506,26 @@ class Catalogue:
             )
             session.commit()
             return result.rowcount == 1
+
+    # An outage noticed by an earlier check, possibly by another process
+
+    def outage_since(self) -> datetime | None:
+        with Session(self._engine) as session:
+            row = session.get(MetaRow, OUTAGE_KEY)
+            return datetime.fromisoformat(row.value) if row else None
+
+    def note_outage(self, now: datetime) -> None:
+        with Session(self._writer) as session:
+            if session.get(MetaRow, OUTAGE_KEY) is None:
+                session.add(MetaRow(key=OUTAGE_KEY, value=now.isoformat()))
+                session.commit()
+
+    def clear_outage(self) -> None:
+        with Session(self._writer) as session:
+            row = session.get(MetaRow, OUTAGE_KEY)
+            if row is not None:
+                session.delete(row)
+                session.commit()
 
     def release_lock(self, owner: str) -> None:
         with Session(self._writer) as session:

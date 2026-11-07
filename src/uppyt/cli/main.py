@@ -325,13 +325,13 @@ def refresh(
 ) -> None:
     """Check feeds for new videos. Works well from cron or a timer.
 
-    Exits 2 when YouTube's feeds are down or every feed checked failed.
+    Exits 2 when YouTube's feeds are down. One feed failing again is reported, but isn't that.
     """
     session = _session(ctx)
     from ..services.refresh import RefreshService
 
     report = RefreshService(session.runtime).run(force=force)
-    broken = report.youtube_down or (report.checked > 0 and report.failed >= report.checked)
+    broken = report.youtube_down
     if as_json:
         typer.echo(render.to_json(report))
     elif not quiet or broken or report.new_videos or report.gaps or report.failed:

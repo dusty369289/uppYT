@@ -203,7 +203,8 @@ def _refresh_returns(monkeypatch, report):
         (RefreshReport(checked=3, new_videos=2), 0, True),
         (RefreshReport(checked=3, gaps=1), 0, True),
         (RefreshReport(checked=3, failed=1), 0, True),
-        (RefreshReport(checked=3, failed=3), 2, True),
+        (RefreshReport(checked=3, failed=3), 0, True),  # loud, but only an outage exits 2
+        (RefreshReport(checked=1, failed=1), 0, True),  # one failing feed rechecked on its own
         (RefreshReport(youtube_down=True), 2, True),
     ],
 )

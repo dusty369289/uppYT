@@ -344,12 +344,16 @@ def test_since_limits_by_date(catalogue):
 # Failures
 
 
-def test_one_404_on_a_working_feed_isnt_the_end_of_it(catalogue):
+def test_404s_never_make_a_working_feed_absent(catalogue):
+    """An outage's 404 is byte for byte a real one, and outages last hours. A feed that has worked keeps being asked,
+    never less often than a healthy one."""
     catalogue.record_success(MKBHD, FeedKind.VIDEOS, entries(MKBHD, 1), NOW, LATER)
-    retry = timedelta(hours=1)
-    assert catalogue.record_missing(MKBHD, FeedKind.VIDEOS, NOW, retry) is FeedStatus.FAILING
-    assert catalogue.record_missing(MKBHD, FeedKind.VIDEOS, NOW, retry) is FeedStatus.FAILING
-    assert catalogue.record_missing(MKBHD, FeedKind.VIDEOS, NOW, retry) is FeedStatus.ABSENT
+    retry = timedelta(minutes=5)
+    for hour in range(30):
+        now = NOW + timedelta(hours=hour)
+        assert catalogue.record_missing(MKBHD, FeedKind.VIDEOS, now, retry) is FeedStatus.FAILING
+        state = catalogue.feed_states([MKBHD])[(MKBHD, FeedKind.VIDEOS)]
+        assert state.next_check_at - now <= timedelta(hours=1)
 
 
 def test_a_404_on_a_feed_that_never_worked_isnt_proof_either(catalogue):

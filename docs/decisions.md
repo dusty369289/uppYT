@@ -186,7 +186,7 @@ Nine reviewers covered correctness, web UX, CSS, the terminal app, the CLI, secu
 ## 2026-11-07: owner decisions after the review
 
 - **The Host check stays on when listening everywhere.** `--host 0.0.0.0` used to turn it off, which left DNS rebinding open. Now any IP address (IPv4, or bracketed IPv6) and `localhost` are answered, since rebinding needs a domain name; other names, such as a LAN hostname, need `UPPYT_ALLOWED_HOSTS`.
-- **`uppyt refresh` suits cron.** `--quiet` prints only for new videos, possible gaps, failures or YouTube being down; `--json` prints the report; it exits 2 when YouTube's feeds are down or every feed checked failed. A skipped busy run isn't a failure.
+- **`uppyt refresh` suits cron.** (Exit 2 was later narrowed to YouTube being down, see the second review.) `--quiet` prints only for new videos, possible gaps, failures or YouTube being down; `--json` prints the report; it exits 2 when YouTube's feeds are down or every feed checked failed. A skipped busy run isn't a failure.
 - **The README says how to use uppYT on a phone**: `--host 0.0.0.0` and this computer's LAN IP, with a plain warning that anyone on the network can then see and change every profile.
 - **`uppyt seen --undo ID` for a video that isn't seen** says "ID isn't marked as seen." and exits 1, like `uppyt seen UNKNOWN`. "Nothing to undo." stays for `--undo` with nothing seen.
 - **A wrongly shaped hand edit to `channels.toml` refuses that profile, and only that one.** A channel entry that isn't a table, entries outside `[channels]`, a `channels` that isn't a table, or a priority, feeds, tags or window of the wrong type is a `ProfileError` naming the file and each bad entry. Before, one such line raised a raw `AttributeError` and stopped refreshes for every profile. The file is never rewritten or trimmed: saves refuse too, the web and CLI show the message, and the TUI shows it in place of the board. Unknown values of the right type (priority "urgent", an unknown feed name, a window out of range) still fall back as before, since only wrong shapes were decided.
@@ -195,3 +195,16 @@ Nine reviewers covered correctness, web UX, CSS, the terminal app, the CLI, secu
 ## 2026-11-07: second review
 
 - **An entry under `[channels]` whose key isn't a channel ID and isn't a table** (`"@mkbhd" = "high"`, a UC ID one character short) is now one of the bad entries in the same `ProfileError`, named by its key. It used to be skipped, so the list looked empty with no reason. A table under such a key is still skipped, as before.
+
+## 2026-11-07: a pretend YouTube, and outage rules it found wanting
+
+`tests/youtube_sim.py` behaves as YouTube was measured to: newest 15 per feed, real 404s for missing feeds, the recorded outage 404, Google's 15-minute edge cache, flaky evenings (playlists in about 40 s spells) and outages (channel feed 1 in 10, playlists never). `tests/test_outage_nights.py` lives through the measured night, a 30-hour outage, a flaky evening and a healthy night, with the app open and from hourly cron. On the code as it was, 18 of 21 failed: working feeds were called absent, 6 uploads never arrived, and the outage cost 166 to 239 requests over 77 checks. A second review found the same independently.
+
+- **A feed that has worked is never called absent from failures alone.** Failures, 404s included, retry with doubling backoff capped at an hour, so it's never asked less often than a healthy feed. Feeds that never worked still go absent after 3 404s, which is how a channel without Live is found.
+- **An outage, once noticed, is stored,** and it's only over when the channel feed and a failing playlist feed both answer fresh. The channel feed alone answered 1 in 10 during the measured outage. Failing feeds skip their backoff only when an outage noticed earlier ends, not whenever three feeds fail.
+- **The outage check also covers profiles with one or two feeds:** all of them failing is enough to ask.
+- **A remembered 404 for a feed that has worked isn't trusted,** since it may be from an outage that has ended.
+- **Long-failing feeds get 2 tries a check, not 6.**
+- **`uppyt refresh` exits 2 only when YouTube is down,** as the README says. One failing feed rechecked alone is reported but exits 0.
+- `feed_states`, read on every check, now reads plain columns: about 9 ms down to about 3 ms each, which also made the simulations fit the 10 s limit.
+- 40 random nights (different seeds) all passed: nothing wrongly absent, nothing lost, under 1.5 requests per check while down.
