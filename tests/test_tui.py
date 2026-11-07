@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 import pytest
 from textual.widgets import Checkbox, DataTable, Input, Select, Static
@@ -621,7 +622,8 @@ async def test_the_seen_list_isnt_cut_off(scene):
     services.channels.add("@veritasium")
     feed = entries(SECOND, 600)
     scene.runtime.catalogue.record_entries(SECOND, FeedKind.VIDEOS, feed.entries, NOW)
-    services.store._write_seen({entry.video_id: NOW for entry in feed.entries})
+    marked = {entry.video_id: NOW.isoformat() for entry in feed.entries}
+    (services.store.folder / "seen.json").write_text(json.dumps(marked))  # quicker than 600 marks
     app = scene.app()
     async with app.run_test() as pilot:
         await pilot.pause()
