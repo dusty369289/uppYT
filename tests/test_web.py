@@ -718,3 +718,18 @@ def test_a_window_out_of_range_is_a_message(followed, window):
     response = followed.get(f"/?window={window}")
     assert response.status_code == 400
     assert "between 1 and 3650 days" in response.text
+
+
+def test_a_bad_hand_edit_to_channels_is_a_message_not_a_crash(followed):
+    path = followed.services().store.folder / "channels.toml"
+    path.write_text(f'[channels]\n{MKBHD} = "high"\n')
+    followed.client.cookies.set(PROFILE_COOKIE, "dusty")
+    for page in ("/", "/channels", f"/channels/{MKBHD}"):
+        response = followed.get(page)
+        assert response.status_code == 400, page
+        assert MKBHD in unescape(response.text)
+        assert "channels.toml" in response.text
+    toast = followed.post(f"/channels/{MKBHD}/remove", headers=HTMX)
+    assert toast.status_code == 200
+    assert MKBHD in unescape(toast.text)
+    assert path.read_text() == f'[channels]\n{MKBHD} = "high"\n'

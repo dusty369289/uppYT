@@ -574,6 +574,17 @@ def test_a_broken_profile_doesnt_stop_the_others_refreshing(scene):
     assert scene.app.refresh.run().checked == 1
 
 
+def test_a_bad_hand_edit_in_one_profile_doesnt_stop_the_others_refreshing(scene):
+    """A string where a table belongs raised a raw AttributeError, and refresh stopped for every profile."""
+    scene.app.channels.add("@veritasium")
+    nat = scene.other()
+    (nat.store.folder / "channels.toml").write_text(f'[channels]\n{MKBHD} = "high"\n')
+    scene.clock.advance(hours=2)
+    assert scene.app.refresh.run().checked == 1
+    with pytest.raises(ProfileError, match=MKBHD):
+        nat.channels.list()
+
+
 def test_refresh_status(scene):
     scene.app.channels.add("@mkbhd")
     status = scene.app.refresh.status()

@@ -75,13 +75,20 @@ class ProfileStore:
 
     def _channels_document(self) -> tomlkit.TOMLDocument:
         try:
-            return tomlkit.parse(self._channels_path.read_text(encoding="utf-8"))
+            document = tomlkit.parse(self._channels_path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             document = tomlkit.document()
             document.add(tomlkit.comment("Your channels. Safe to edit by hand while uppYT isn't saving."))
             return document
         except TOMLKitError as error:
             raise ProfileError(f"{self._channels_path} can't be read: {error}") from error
+        problems = _channel_problems(document.unwrap())
+        if problems:
+            raise ProfileError(
+                f"{self._channels_path} has entries uppYT can't use, so this profile is left alone until they're "
+                f"fixed by hand: {'; '.join(problems)}."
+            )
+        return document
 
     def subscriptions(self) -> dict[str, Subscription]:
         with self._lock:
@@ -207,8 +214,63 @@ class ProfileStore:
             return True
 
 
+def _kind_of(value: object) -> str:
+    """How a TOML value reads to someone who wrote it by hand."""
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, int | float):
+        return f"the number {value}"
+    if isinstance(value, str):
+        return f"the text {value[:40]!r}"
+    if isinstance(value, list):
+        return "a list"
+    if isinstance(value, dict):
+        return "a table"
+    return f"the date or time {value}"
+
+
+def _is_text_list(value: object) -> bool:
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def _channel_problems(document: dict) -> list[str]:
+    """Each entry whose shape is wrong, in words. Unknown values of the right shape are left to `_subscription`."""
+    problems = []
+    for key in document:
+        if key != "channels":
+            where = f"[channels.{key}]" if CHANNEL_ID.match(key) else "[channels]"
+            problems.append(f"{key} is outside [channels]. Channels belong under it, as {where}")
+    channels = document.get("channels", {})
+    if not isinstance(channels, dict):
+        return [*problems, f"channels should be a [channels] table, not {_kind_of(channels)}"]
+    for channel_id, row in channels.items():
+        if not CHANNEL_ID.match(channel_id):
+            continue
+        if not isinstance(row, dict):
+            problems.append(
+                f'{channel_id} should be a table, as [channels.{channel_id}] with priority = "high" under it, '
+                f"not {_kind_of(row)}"
+            )
+            continue
+        wrong = {
+            "priority": ('text such as "high"', "priority" in row and not isinstance(row["priority"], str)),
+            "feeds": ('a list such as ["videos", "live"]', "feeds" in row and not _is_text_list(row["feeds"])),
+            "tags": ('a list such as ["tech"]', "tags" in row and not _is_text_list(row["tags"])),
+            "window_days": (
+                "a whole number of days",
+                "window_days" in row
+                and (isinstance(row["window_days"], bool) or not isinstance(row["window_days"], int)),
+            ),
+        }
+        for field, (should, is_wrong) in wrong.items():
+            if is_wrong:
+                problems.append(f"{channel_id}: {field} should be {should}, not {_kind_of(row[field])}")
+    return problems
+
+
 def _subscription(channel_id: str, row) -> Subscription:
-    """A hand-edited row may be missing things or wrong. Keep what's readable rather than losing the channel."""
+    """A hand-edited row may be missing things or hold an unknown value. Keep what's readable rather than losing the
+    channel. Wrong shapes never get here: `_channel_problems` refuses the file first."""
     try:
         priority = Priority.parse(str(row.get("priority", "normal")))
     except UserError:

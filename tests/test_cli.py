@@ -402,3 +402,21 @@ def test_a_free_port_is_served_on_the_socket_already_bound(cli, monkeypatch):
     (listening,) = served
     assert listening.getsockname()[0] == "127.0.0.1"
     listening.close()
+
+
+def test_a_bad_hand_edit_to_channels_is_a_sentence_not_a_stack_trace(cli):
+    path = cli.store().folder / "channels.toml"
+    path.write_text(f'[channels.{MKBHD}]\ntags = "tech"\n')
+    for command in (("board",), ("channels", "ls"), ("channels", "rm", MKBHD)):
+        output = cli(*command, code=1)
+        assert f"{MKBHD}: tags" in output
+        assert "Traceback" not in output
+    assert path.read_text() == f'[channels.{MKBHD}]\ntags = "tech"\n'
+
+
+def test_refresh_carries_on_past_another_profiles_bad_hand_edit(cli):
+    cli("channels", "add", "@mkbhd")
+    cli("profiles", "add", "nat")
+    (cli.store("nat").folder / "channels.toml").write_text(f"[channels]\n{SECOND} = 3\n")
+    cli.clock.advance(hours=2)
+    assert "Checked 2 feeds" in cli("refresh")

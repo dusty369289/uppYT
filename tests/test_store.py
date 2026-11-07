@@ -536,7 +536,7 @@ def test_hand_edits_and_comments_survive_saving(profile):
 
 def test_a_sloppy_hand_edit_keeps_the_channel(profile):
     (profile.folder / "channels.toml").write_text(
-        f'[channels.{MKBHD}]\npriority = "urgent"\nfeeds = ["videos", "nonsense"]\nwindow_days = "soon"\n'
+        f'[channels.{MKBHD}]\npriority = "urgent"\nfeeds = ["videos", "nonsense"]\nwindow_days = 99999\n'
         "[channels.not-a-channel]\n"
     )
     subscriptions = profile.subscriptions()
@@ -554,6 +554,71 @@ def test_a_broken_channels_file_is_reported_and_not_overwritten(profile):
     with pytest.raises(ProfileError):
         profile.save_subscription(Subscription(MKBHD))
     assert path.read_text() == "[[[ nonsense"
+
+
+# A hand edit uppYT can't make sense of refuses the profile, says where, and leaves the file as it is.
+
+MALFORMED_CHANNELS = [
+    pytest.param(f'[channels]\n{MKBHD} = "high"\n', MKBHD, id="entry-is-text"),
+    pytest.param(f"[channels]\n{MKBHD} = 3\n", MKBHD, id="entry-is-a-number"),
+    pytest.param(f'[channels]\n{MKBHD} = ["high"]\n', MKBHD, id="entry-is-a-list"),
+    pytest.param(f"[channels]\n{MKBHD} = true\n", MKBHD, id="entry-is-true"),
+    pytest.param(f'[{MKBHD}]\npriority = "high"\n', MKBHD, id="outside-channels"),
+    pytest.param('channels = "everything"\n', "channels", id="channels-is-text"),
+    pytest.param('[[channels]]\npriority = "high"\n', "channels", id="channels-is-a-list-of-tables"),
+    pytest.param(f"[channels.{MKBHD}]\npriority = 3\n", "priority", id="priority-is-a-number"),
+    pytest.param(f'[channels.{MKBHD}]\npriority = ["high"]\n', "priority", id="priority-is-a-list"),
+    pytest.param(f'[channels.{MKBHD}]\nfeeds = "videos"\n', "feeds", id="feeds-is-text"),
+    pytest.param(f"[channels.{MKBHD}]\nfeeds = [1, 2]\n", "feeds", id="feeds-holds-numbers"),
+    pytest.param(f"[channels.{MKBHD}]\nfeeds = {{ videos = true }}\n", "feeds", id="feeds-is-a-table"),
+    pytest.param(f'[channels.{MKBHD}]\ntags = "tech"\n', "tags", id="tags-is-text"),
+    pytest.param(f"[channels.{MKBHD}]\ntags = [1]\n", "tags", id="tags-holds-numbers"),
+    pytest.param(f'[channels.{MKBHD}]\nwindow_days = "soon"\n', "window_days", id="window-is-text"),
+    pytest.param(f"[channels.{MKBHD}]\nwindow_days = 30.5\n", "window_days", id="window-is-a-fraction"),
+    pytest.param(f"[channels.{MKBHD}]\nwindow_days = true\n", "window_days", id="window-is-true"),
+    pytest.param(f"[channels.{MKBHD}]\nwindow_days = 2026-11-07\n", "window_days", id="window-is-a-date"),
+]
+
+
+@pytest.mark.parametrize(("text", "named"), MALFORMED_CHANNELS)
+def test_a_malformed_channels_file_is_refused_with_a_readable_message(profile, text, named):
+    path = profile.folder / "channels.toml"
+    path.write_text(text)
+    with pytest.raises(ProfileError) as caught:
+        profile.subscriptions()
+    message = str(caught.value)
+    assert str(path) in message
+    assert named in message
+    assert "Traceback" not in message and "object has no attribute" not in message
+    for save in (lambda: profile.save_subscription(Subscription(MKBHD)), lambda: profile.remove_subscription(MKBHD)):
+        with pytest.raises(ProfileError):
+            save()
+    assert path.read_text() == text
+
+
+def test_a_bad_entry_names_its_channel_and_every_problem(profile):
+    other = "UCHnyfMqiRRG1u-2MsSQLbXA"
+    (profile.folder / "channels.toml").write_text(
+        f'[channels]\n{MKBHD} = "high"\n[channels.{other}]\npriority = 3\ntags = "tech"\n'
+    )
+    with pytest.raises(ProfileError) as caught:
+        profile.subscriptions()
+    message = str(caught.value)
+    assert MKBHD in message
+    assert f"{other}: priority" in message
+    assert f"{other}: tags" in message
+
+
+def test_an_inline_table_entry_is_fine(profile):
+    (profile.folder / "channels.toml").write_text(f'[channels]\n{MKBHD} = {{ priority = "high", tags = ["tech"] }}\n')
+    subscription = profile.subscriptions()[MKBHD]
+    assert subscription.priority is Priority.HIGH
+    assert subscription.tags == ("tech",)
+
+
+def test_a_channels_file_with_only_comments_is_empty_not_broken(profile):
+    (profile.folder / "channels.toml").write_text("# nothing yet\n\n")
+    assert profile.subscriptions() == {}
 
 
 def test_removing_a_subscription(profile):
