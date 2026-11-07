@@ -205,7 +205,7 @@ uv run pytest -m live -n 0   # checks that YouTube's formats haven't changed
 - **Browser checks:** accessibility, overflow, tap targets, keyboard use and page weight, plus a contact sheet of every screen and pixel baselines kept local to your machine.
 - **Tests never touch the network**, and their fixtures are recordings of real public feeds.
 
-[`CLAUDE.md`](CLAUDE.md) has the architecture and rules, and [`docs/decisions.md`](docs/decisions.md) has why things are the way they are. `scripts/make_readme_assets.py` regenerates these pictures from the running app.
+[`CLAUDE.md`](CLAUDE.md) has the architecture and rules, and [`docs/decisions.md`](docs/decisions.md) has why things are the way they are. `scripts/make_thumbnails.py` makes the example thumbnails, and `scripts/make_readme_assets.py` regenerates these pictures from the running app.
 
 </details>
 

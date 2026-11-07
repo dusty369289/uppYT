@@ -96,3 +96,13 @@ Neither was re-run away or loosened, and both limits stayed where they were.
 - **CI doesn't make pixel baselines.** The owner pointed out they were created on an empty folder every run and never
   compared, and all 290 screens reported as skipped despite passing their rules. Caching them between runs was rejected:
   runner images change rendering, and CI has nobody to approve an intended change. Pixel comparison stays a local check.
+
+## 2026-11-07: timing noise and thumbnail source
+
+- **Shared setup no longer counts against a test.** A module fixture's seconds landed on whichever test triggered it, which
+  depended on how a run was split across workers. Time in module and session fixtures, and scenes started from inside a test,
+  is now measured and subtracted. A module's last test skips its teardown phase, since shared finalizers run there.
+  Timing flags already open are left to clear over normal runs. A test whose old baseline included shared setup will
+  read as faster and stay flagged until someone accepts it with a reason.
+- **The thumbnail generator is in the repo.** The artwork is source for a public project, so it should be reproducible and
+  editable. It pins the emoji set to a commit, and the three CC0 photos it uses are committed.

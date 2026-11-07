@@ -3,9 +3,10 @@
 The channels and videos in these pictures are made up. No real creator's work is used.
 
 - **Objects:** [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) by Microsoft, under the MIT licence.
+- **How they're made:** `scripts/make_thumbnails.py`.
 - **Headline fonts:** Anton, Archivo Black, Bangers, Alfa Slab One, Oswald, Russo One, Permanent Marker, Luckiest Guy and
   Bebas Neue, from Google Fonts. These are open fonts, and only their rendered shapes are in the images.
-- **Blurred backgrounds:** three thumbnails use these photos. The rest are drawn colour.
+- **Blurred backgrounds:** three thumbnails use these photos, kept in `thumbnail-photos/`. The rest are drawn colour.
 
 | Thumbnail | Photo | Creator | Licence | Source |
 |---|---|---|---|---|

@@ -22,6 +22,8 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from make_thumbnails import VIDEOS  # noqa: E402
+
 from tests.support import NOW, feed_xml  # noqa: E402
 from tests.ui.scenes import CHANNELS, build_world, start_scene  # noqa: E402
 from uppyt.domain.feeds import FeedKind  # noqa: E402
@@ -30,29 +32,7 @@ from uppyt.tui.app import UppytApp  # noqa: E402
 OUT = ROOT / "docs" / "img"
 FONT_BYTES = (ROOT / "src/uppyt/web/static/fonts/ibm-plex-sans-600.woff2").read_bytes()
 FONT = "data:font/woff2;base64," + base64.b64encode(FONT_BYTES).decode()
-THUMBNAILS = OUT / "thumbnails"  # finished artwork, credited in docs/img/CREDITS.md
-CATALOGUE = {
-    "alpha": [
-        ("al0001", "Why the tide comes in twice a day"),
-        ("al0002", "The harbour that moved 40 metres"),
-        ("al0003", "What lives under a lighthouse"),
-    ],
-    "beta": [
-        ("be0001", "This hand plane cost me 3 pounds"),
-        ("be0002", "Cutting gears without a gear cutter"),
-        ("be0003", "Restoring a 1950s workshop, part 4"),
-    ],
-    "gamma": [
-        ("ga0000", "The only bread you need this winter"),
-        ("ga0001", "Stock is easier than you've been told"),
-        ("ga0002", "My grandmother's pickles, tested properly"),
-    ],
-    "delta": [
-        ("de0000", "The last valve radio repairman in town"),
-        ("de0001", "What's inside a crystal set"),
-        ("de0002", "Listening from the top of a mast"),
-    ],
-}
+THUMBNAILS = OUT / "thumbnails"  # made by make_thumbnails.py, and credited in docs/img/CREDITS.md
 
 
 class Posters:
@@ -267,12 +247,12 @@ def diagrams(browser) -> None:
 def readme_world():
     """The UI tests' world, with feeds that read like real channels."""
     world = build_world()
-    for key, rows in CATALOGUE.items():
+    for key, rows in VIDEOS.items():
         channel_id, name, _ = CHANNELS[key]
         spread = sum(map(ord, key)) % 20
         videos = [
-            (f"{video}xxxxx", title, NOW - timedelta(days=1 + i * 4, hours=spread))
-            for i, (video, title) in enumerate(rows)
+            (f"{video.id}xxxxx", video.title, NOW - timedelta(days=1 + i * 4, hours=spread))
+            for i, video in enumerate(rows)
         ]
         xml = feed_xml(channel_id, name, videos)
         world.serve_feed(channel_id, FeedKind.VIDEOS, xml)
