@@ -8,6 +8,7 @@ import pytest
 from playwright.sync_api import expect
 
 from tests.ui.conftest import Watcher, open_context
+from uppyt.domain.feeds import TOGGLES, FeedKind
 
 pytestmark = [pytest.mark.ui, pytest.mark.timeout(45)]
 
@@ -97,6 +98,34 @@ def test_filters_apply_at_once_and_land_in_the_address(board):
     page.get_by_label("Tag").select_option("food")
     expect(page).to_have_url(re.compile(r"tag=food"))
     expect(page.locator(".card")).not_to_have_count(0)
+
+
+def test_changing_filters_quickly_loses_nothing(board):
+    """CI found this: a change made while the last was loading was dropped, so controls and board disagreed."""
+    page, scene, _ = board
+    page.get_by_label("How far back").select_option("30")
+    page.get_by_label("Tag").select_option("food")
+    page.get_by_label("Shorts").uncheck()
+    page.get_by_label("How far back").select_option("7")
+    expect(page).to_have_url(re.compile(r"window=7.*tag=food"))
+    expect(page.get_by_label("Tag")).to_have_value("food")
+    expect(page.get_by_label("How far back")).to_have_value("7")
+    kinds = [k for k in TOGGLES if k is not FeedKind.SHORTS]
+    expected = scene.services().board.view(window_days=7, tag="food", kinds=kinds)
+    expect(cards(page)).to_have_count(len(expected.cards))
+    expect(page.locator(".tools__count")).to_have_text(f"{expected.total} unseen")
+
+
+def test_the_filter_form_is_never_replaced(board):
+    """Replacing it is what left a moment when a change had nothing listening for it."""
+    page, _, _ = board
+    page.evaluate("document.querySelector('.tools').dataset.original = 'yes'")
+    page.get_by_label("How far back").select_option("7")
+    expect(page).to_have_url(re.compile(r"window=7"))
+    assert page.evaluate("document.querySelector('.tools').dataset.original") == "yes"
+    page.get_by_label("Tag").select_option("food")
+    expect(page).to_have_url(re.compile(r"tag=food"))
+    assert page.evaluate("document.querySelector('.tools').dataset.original") == "yes"
 
 
 def test_unticking_every_kind_says_why_nothing_shows(board):

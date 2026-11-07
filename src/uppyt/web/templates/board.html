@@ -20,7 +20,7 @@
 {% else %}
 <div id="board">
   <h1 class="visually-hidden">Board</h1>
-  <form class="tools" method="get" action="/" hx-get="/" hx-trigger="change" hx-target="#board" hx-select="#board" hx-swap="outerHTML" hx-push-url="true" aria-label="Filter the board">
+  <form class="tools" method="get" action="/" hx-get="/" hx-trigger="change" hx-sync="this:queue last" hx-target="#results" hx-select="#results" hx-select-oob="#unseen-count" hx-swap="outerHTML" hx-push-url="true" aria-label="Filter the board">
     <input type="hidden" name="filtered" value="1">
     <select class="select select--small" name="window" aria-label="How far back">
       {% for days, label in window_options %}<option value="{{ days }}" {% if days == view.window_days %}selected{% endif %}>{{ label }}</option>{% endfor %}
@@ -38,8 +38,9 @@
     </select>
     {% endif %}
     <button class="tools__check" type="submit" data-hide-with-js>Apply</button>
-    <span class="tools__count">{{ view.total }} unseen</span>
+    <span class="tools__count" id="unseen-count">{{ view.total }} unseen</span>
   </form>
+  <div id="results">
   {% if view.notes %}
   <div class="note-list stack" data-note>
     {% for note in view.notes %}<p>{{ note }}</p>{% endfor %}
@@ -60,6 +61,7 @@
   <form class="more" method="post" action="/refresh" hx-post="/refresh" hx-swap="none">
     <span class="footnote">Last checked {{ ago(view.last_refresh) }}. <button class="tools__check" type="submit">Check now</button></span>
   </form>
+  </div>
 </div>
 {% endif %}
 {% endblock %}
