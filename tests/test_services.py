@@ -770,6 +770,39 @@ def test_repeating_a_remembered_404_isnt_a_new_failure(scene):
     assert state.failures == 1
 
 
+class TickingClock(FixedClock):
+    """A real clock moves between reads, so a fetch always happens a little after its poll began."""
+
+    def __call__(self):
+        self.now += timedelta(milliseconds=1)
+        return self.now
+
+
+def test_a_remembered_404_isnt_new_on_a_clock_that_moves(tmp_path):
+    """With a real clock, the 404 an hourly refresh got was counted again by the next Check now, from memory, and
+    the feed was marked absent without a single new request."""
+    clock = TickingClock()
+    transport = world()
+    runtime = Runtime(Paths(tmp_path), clock=clock, transport=transport, sleep=no_sleep)
+    try:
+        runtime.create_profile("dusty")
+        app = UppYT(runtime, runtime.profile("dusty"))
+        del transport.routes[feed_url(SECOND, FeedKind.VIDEOS)]
+        app.channels.add("@veritasium")
+        clock.advance(minutes=6)  # the probe's 404 has been forgotten, so this refresh really asks
+        app.refresh.run()
+        asked = len(transport.requests)
+        for _ in range(3):
+            clock.advance(seconds=30)
+            app.refresh.run(force=True)
+        state = runtime.catalogue.feed_states([SECOND])[(SECOND, FeedKind.VIDEOS)]
+        assert len(transport.requests) == asked
+        assert state.status is FeedStatus.FAILING
+        assert state.failures == 2
+    finally:
+        runtime.close()
+
+
 def test_a_feed_that_errored_isnt_called_missing(scene):
     """A 500 means no answer. It mustn't turn into 'not found' because the newest uploads happen to have no Shorts."""
     scene.transport.break_feed(SECOND, FeedKind.SHORTS)

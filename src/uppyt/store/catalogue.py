@@ -356,7 +356,11 @@ class Catalogue:
         because real feeds answer 404 for a while and then come back."""
         with Session(self._writer) as session:
             row = self._feed_row(session, channel_id, kind)
-            if asked_at and row.last_checked_at and asked_at <= row.last_checked_at:
+            # On a real clock a fresh fetch reads the time just after its poll began, so last_checked_at alone can't
+            # catch a replay. A 404 asked before this poll, while the feed was already answering 404, was counted
+            # when it was new. One that wasn't counted, like the lookup's before adding a channel, still counts
+            replayed = not probing and asked_at is not None and asked_at < now and row.missing_in_a_row > 0
+            if replayed or (asked_at and row.last_checked_at and asked_at <= row.last_checked_at):
                 return FeedStatus(row.status)  # the same answer again, from memory. Nothing new was learned
             row.failures += 1
             row.missing_in_a_row += 1
