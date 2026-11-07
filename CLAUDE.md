@@ -122,4 +122,6 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
 - **Check a theory with arithmetic before believing it.** Timing theories were wrong twice, until 311 tests in 77 s on 4 workers
   proved the recorded 4.4 s couldn't be real. Time things alone, and compare with what the totals allow.
 - **Leave time limits well above how long a suite takes.** A 75 s limit on a 77 s suite silently threw away seven runs.
+- **A form htmx swapped in may not be wired up yet.** Clicking it from script in that moment posts the whole page. Seen
+  once in 12 runs under load with the u shortcut. `app.js` runs `htmx.process` on a form before pressing it.
 - Textual's own names bite: `remove`, `_id` and `_loop` on a screen or app all break it silently or strangely.

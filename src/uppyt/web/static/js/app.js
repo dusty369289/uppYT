@@ -21,16 +21,23 @@
     return target.closest("input, select, textarea, [contenteditable]");
   }
 
+  // A form swapped in a moment ago may not have its htmx handlers yet, and a click then posts the whole page. Seen once
+  // in 12 runs under load, pressing u as the toast arrived. Processing again is harmless: htmx skips what it has done.
+  const press = (button) => {
+    if (window.htmx && button.form) window.htmx.process(button.form);
+    button.click();
+  };
+
   document.addEventListener("keydown", (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target)) return;
     const all = cards();
     if (event.key === "j") { highlight(current + 1); }
     else if (event.key === "k") { highlight(current - 1); }
-    else if (event.key === "s" && all[current]) { all[current].querySelector(".card__seen button").click(); }
+    else if (event.key === "s" && all[current]) { press(all[current].querySelector(".card__seen button")); }
     else if (event.key === "o" && all[current]) { all[current].querySelector(".card__picture").click(); }
     else if (event.key === "u") {
       const undo = document.querySelector(".toast form button");
-      if (undo) undo.click(); else return;
+      if (undo) press(undo); else return;
     } else { return; }
     event.preventDefault();
   });

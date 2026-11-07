@@ -279,6 +279,23 @@ def test_keyboard_focus_survives_the_undo_shortcut(board):
     expect(page.locator(f'[data-video="{third}"] .card__picture')).to_be_focused()
 
 
+def test_the_undo_shortcut_works_on_a_toast_htmx_hasnt_reached_yet(board):
+    """htmx wires up a swapped-in form a moment later. Pressing u in that moment posted the whole page. Once in 12
+    runs under load, so this makes the moment happen every time: a toast htmx hasn't processed."""
+    page, _, _ = board
+    first = cards(page).first.get_attribute("data-video")
+    cards(page).first.get_by_role("button").click()
+    expect(page.locator(".toast")).to_be_visible()
+    page.evaluate("""() => {
+        const region = document.getElementById("toasts");
+        region.innerHTML = region.innerHTML;  // the same toast, as new elements htmx hasn't seen
+    }""")
+    with page.expect_request(lambda r: r.url.endswith(f"/seen/{first}/undo")) as asked:
+        page.keyboard.press("u")
+    assert asked.value.headers.get("hx-request") == "true"  # htmx's request, not a whole-page post
+    expect(page.locator(f'[data-video="{first}"]')).to_have_count(1)
+
+
 def test_a_failed_check_doesnt_pull_focus_later(board):
     """After a check failed, the next filter change moved focus off the dropdown onto Check now."""
     page, _, watcher = board
