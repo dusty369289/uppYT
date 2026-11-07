@@ -78,8 +78,9 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
   `.ui-report/index.html` afterwards. `uv run pytest -m live -n 0` checks YouTube's real formats.
 - Tests never touch the network. Fixtures are **recordings of real public pages and feeds**, never guessed shapes.
 - 10 s hard timeout per test. A hang is a bug, not a limit to raise.
-- **Timing review:** a test straying from its rolling average enters a sticky queue, shown on every run until it recovers
-  or is accepted: `pytest --timing-accept <test> --reason "..."`. Explain it, don't just accept it.
+- **Timing review:** runs are stored in real seconds. The machine's speed is voted on per file, and a whole file shifting is
+  reported as one line. A test straying from its baseline enters a sticky queue, shown on every run until it recovers or is
+  accepted: `pytest --timing-accept <test> --reason "..."`. Explain it, don't just accept it.
   `pytest --timing-report` shows the queue. Warnings never fail a run.
 - Run output: `pytest ... > file 2>&1`, then read the file.
 - **CI skips pixel comparison** (`--ui-no-baselines`), since its machines are thrown away. Everything else runs there.
@@ -106,4 +107,7 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
   lost 187 of 200 parallel marks. Two separate processes (web and CLI) can still race, in a very narrow window.
 - **Keep the board's filter form in place.** Swap only `#results`, with `hx-sync="this:queue last"`. Replacing the form and
   htmx's default of dropping requests lost changes made while one was loading. Only CI's slower machine showed it.
+- **Check a theory with arithmetic before believing it.** Timing theories were wrong twice, until 311 tests in 77 s on 4 workers
+  proved the recorded 4.4 s couldn't be real. Time things alone, and compare with what the totals allow.
+- **Leave time limits well above how long a suite takes.** A 75 s limit on a 77 s suite silently threw away seven runs.
 - Textual's own names bite: `remove`, `_id` and `_loop` on a screen or app all break it silently or strangely.
