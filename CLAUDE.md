@@ -57,9 +57,14 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
 ## Product rules
 - **Ranking:** `sort key = published_at + head_start(priority) - repeat_penalty x (newer unseen videos from that channel)`,
   newest key first. Defaults: Low 0, Normal 7, High 28, Must-see 56 days, penalty 7 days (0 turns it off).
-- **Window** filters on real age. Default 60 days, adjustable on the board, optional per-channel override.
-- **Feeds:** toggles are Videos and Live (default on), Shorts and Members (default off). Popular and All uploads are
-  recorded when probing, never polled. Only enabled feeds are polled. Kind precedence: Live > Short > Video.
+- **Window** filters on real age. Default 60 days, adjustable on the board, optional per-channel override. Every surface
+  refuses a window outside 1 to 3650 days, rather than quietly using the default.
+- **Feeds:** toggles are Videos and Live (default on), Shorts and Members (default off). Popular feeds are recorded when
+  probing, never polled. All uploads (the plain channel feed) has no toggle and isn't polled on its own, but refresh asks
+  it to fill in Videos or Shorts when they fail, and to tell an outage from a real 404. Only enabled feeds are polled.
+  Kind precedence: Live > Short > Video.
+- **CLI profile:** `--profile` works before or after a command. `UPPYT_PROFILE` is read by the root option only, so it
+  never overrides a `--profile` that was typed.
 - **Seen** is explicit only: opening a video never marks it seen. Always undoable, with a Seen page to restore from.
 - **Refresh:** on launch, hourly while running, plus `uppyt refresh` for cron. Never re-fetch a feed within 15 minutes
   (`max-age=900`). One 404 doesn't make a feed absent. Enabled feeds believed absent are rechecked daily, lightly.

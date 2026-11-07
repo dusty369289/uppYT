@@ -9,3 +9,9 @@ docs
 .ui-report
 .hypothesis
 .ruff_cache
+.ui-report-previous
+.thumbnail-objects
+.pytest_cache
+scripts
+**/__pycache__
+**/*.pyc

@@ -161,3 +161,10 @@ Earlier entries call the channel feed reliable and a bad spell about 40 seconds.
 - **During an outage a check costs one request**, and any failing feed is retried as soon as one answers. This is worked out from stored state, so `uppyt refresh` from cron behaves the same.
 - **No other host serves these feeds.** 12 other Google and YouTube hostnames were tried. `youtube.com` and `m.youtube.com` do, but they're probably the same service.
 - **No fallback to channel pages during an outage.** The owner's decision: RSS only, with the channel page just for checking a channel exists when it's added. If feeds are down, uppYT waits and says so.
+
+## 2026-11-07: review fixes
+
+- **`--profile` works after a command too** (`uppyt board --profile NAME`), since the README and the error both led people there and it failed. `UPPYT_PROFILE` stays on the root option only, so it can't override a `--profile` that was typed.
+- **Out-of-range numbers are refused, not quietly changed.** A board window outside 1 to 3650 days, a limit under 1 or a negative offset is an error on every surface. Before, a window of 0 silently became the default and a negative offset showed a false "Nothing unseen".
+- **`youtu.be` links get the video message, but are still never fetched.** It's kept out of the hosts uppYT will request, so RSS only is unchanged.
+- **A taken port is checked before printing "running"**, so no browser opens on whatever else holds it.

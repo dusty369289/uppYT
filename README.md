@@ -132,7 +132,7 @@ uppyt export channels.opml
 uppyt backup
 ```
 
-Add `--profile NAME` if there's more than one profile, and `--help` to any command for the rest. From a clone, put `uv run` in front.
+If there's more than one profile, choose one with `--profile NAME`, before or after the command (`uppyt --profile NAME board` or `uppyt board --profile NAME`), or set `UPPYT_PROFILE=NAME`. `refresh`, `status` and `backup` cover every profile, so they don't need one. Add `--help` to any command for the rest. From a clone, put `uv run` in front and run it inside the clone. For cron, see below.
 
 </details>
 
@@ -144,7 +144,7 @@ uppYT only reads YouTube's public RSS feeds, plus one page when you add a channe
 > **New channels start thin.** Each feed lists only the newest 15 videos, so older ones can't be fetched. The board fills in over time, and each channel's page says where its history starts.
 
 > [!TIP]
-> **Keep it running, or schedule it.** uppYT checks hourly while it's open. If a channel uploads more than 15 videos between checks, some can be missed, and its page says when that may have happened. To keep checking while it's closed, schedule `uv run uppyt refresh` with cron or a timer.
+> **Keep it running, or schedule it.** uppYT checks hourly while it's open. If a channel uploads more than 15 videos between checks, some can be missed, and its page says when that may have happened. To keep checking while it's closed, schedule a refresh with cron or a timer. Cron starts outside the clone with a short `PATH`, so use the full path to the clone's own command, for example `0 * * * * /path/to/uppYT/.venv/bin/uppyt refresh`. One refresh covers every profile.
 
 > [!NOTE]
 > **No search and no durations.** Feeds don't provide them, so channels are added by link, and cards don't show a length.
@@ -167,10 +167,12 @@ config/<profile>/channels.toml   channels, priorities, feeds and tags. Safe to e
 config/<profile>/settings.toml   only what you've changed
 config/<profile>/seen.json       what you've marked as seen
 data/catalogue.db                video history, shared by profiles
+data/backups/<date and time>/    copies made by Back up
+data/avatars/                    channel pictures, saved when a channel is added
 ```
 
 > [!CAUTION]
-> **History can't be downloaded again**, so keep `data/`. Settings has a backup button, or run `uv run uppyt backup`. Set `UPPYT_HOME` to keep all of this somewhere else.
+> **History can't be downloaded again**, so keep `data/`. Settings has a backup button, or run `uv run uppyt backup`. Backups go inside `data/` too, so copy them somewhere else to survive losing the folder. Set `UPPYT_HOME` to keep all of this somewhere else.
 
 Profiles keep lists apart, but they aren't private: anyone who can open uppYT can open any profile. It only listens on your own computer unless you pass `--host`.
 
