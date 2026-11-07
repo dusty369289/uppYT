@@ -799,8 +799,8 @@ class UppytApp(App):
 
     def _show_list(self, screen_type: type[Screen]) -> None:
         """Channels and Seen swap in place, so one Escape always gets back to the board."""
-        if not self.services or isinstance(self.screen, screen_type):
-            return
+        if not self.services or isinstance(self.screen, (screen_type, ModalScreen)):
+            return  # a dialog on top is finished first, so the stack can't grow under it
         if isinstance(self.screen, (ChannelsScreen, SeenScreen)):
             self.switch_screen(screen_type())
         else:

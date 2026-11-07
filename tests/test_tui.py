@@ -920,3 +920,39 @@ async def test_fixing_channels_by_hand_is_picked_up_without_pressing_r(scene):
             assert len(app.screen_stack) == 1
         assert app.profile_problem is None
         assert "can't be shown" not in status(app)
+
+
+@pytest.mark.parametrize("under", ["board", "c", "v"])
+async def test_c_and_v_do_nothing_while_a_dialog_is_open(scene, under):
+    app = scene.app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        if under != "board":
+            await pilot.press(under)
+            await pilot.pause()
+        depth = len(app.screen_stack)
+        await pilot.press("question_mark")
+        await pilot.pause()
+        assert isinstance(app.screen, HelpScreen)
+        for key in ("c", "v", "c", "v"):
+            await pilot.press(key)
+            await pilot.pause()
+            assert isinstance(app.screen, HelpScreen), key
+            assert len(app.screen_stack) == depth + 1, key
+        await pilot.press("escape")
+        await pilot.pause()
+        assert len(app.screen_stack) == depth
+
+
+async def test_the_channels_and_seen_actions_never_stack_on_a_dialog(scene):
+    """Textual already keeps app keys away from a dialog. The actions refuse too, whatever calls them."""
+    app = scene.app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("c", "question_mark")
+        await pilot.pause()
+        app.action_seen_list()
+        app.action_channels()
+        await pilot.pause()
+        assert isinstance(app.screen, HelpScreen)
+        assert len(app.screen_stack) == 3
