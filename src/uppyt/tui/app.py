@@ -758,8 +758,9 @@ class UppytApp(App):
         video = self._selected_video()
         if video and self._on_board():
             found = self.runtime.catalogue.videos_by_id([video]).get(video)
-            if found:
-                self.opener(found.url)
+            # webbrowser.open says False when no browser can start, as over SSH
+            if found and self.opener(found.url) is False:
+                self.notify(f"Couldn't open a browser. The video is at {found.url}", markup=False, timeout=10)
 
     def action_cursor_down(self) -> None:
         self.query_one("#board", DataTable).action_cursor_down()

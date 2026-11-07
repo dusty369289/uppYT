@@ -807,3 +807,14 @@ async def test_the_first_profile_dialog_cant_be_cancelled(scene):
         await pilot.press("escape")
         await pilot.pause()
         assert isinstance(app.screen, ProfileScreen)
+
+
+async def test_no_browser_shows_the_link_instead(scene):
+    scene.services().channels.add("@veritasium")
+    app = scene.app()
+    app.opener = lambda url: False
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("o")
+        await pilot.pause()
+        assert any("https://www.youtube.com/watch?v=veri0000xxx" in m for m in notified(app))
