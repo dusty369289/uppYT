@@ -628,6 +628,19 @@ def test_a_lan_hostname_works_once_listed(tmp_path, monkeypatch):
     site.runtime.close()
 
 
+def test_host_names_match_whatever_their_case(tmp_path, monkeypatch):
+    """DNS names ignore case, and browsers send them lowercased. A capitalised name in the list was refused."""
+    from uppyt.cli.main import _allowed_hosts
+
+    monkeypatch.setenv("UPPYT_ALLOWED_HOSTS", "MyBox.lan")
+    site = Site(tmp_path, allowed_hosts=_allowed_hosts("0.0.0.0"))
+    assert site.client.get("/", headers={"host": "mybox.lan:8770"}).status_code == 303
+    assert site.client.get("/", headers={"host": "MYBOX.LAN:8770"}).status_code == 303
+    assert site.client.get("/", headers={"host": "LocalHost:8770"}).status_code == 303
+    assert site.client.get("/", headers={"host": "Evil.example"}).status_code == 421
+    site.runtime.close()
+
+
 def test_avatars_cant_escape_their_folder(followed):
     assert followed.get(f"/avatars/{SECOND}.jpg").status_code == 200
     assert followed.get("/avatars/..%2f..%2fsecret.jpg").status_code == 404

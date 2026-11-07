@@ -142,6 +142,8 @@ def create_app(
 
     app = FastAPI(title="uppYT", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.runtime = runtime
+    if allowed_hosts is not None:  # DNS names ignore case, and browsers send them lowercased
+        allowed_hosts = frozenset(name.lower() for name in allowed_hosts)
     jobs = ImportJobs()
     templates = Jinja2Templates(directory=HERE / "templates")
     css = _css_bundle()
@@ -192,7 +194,7 @@ def create_app(
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
-        host = _host_name(request.headers.get("host") or "")
+        host = _host_name(request.headers.get("host") or "").lower()
         if allowed_hosts is not None and host not in allowed_hosts and not _is_ip_literal(host):
             return PlainTextResponse(
                 "That address isn't one uppYT answers on. See UPPYT_ALLOWED_HOSTS.", status_code=421
