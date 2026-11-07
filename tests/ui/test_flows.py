@@ -249,6 +249,45 @@ def test_tabbing_to_a_card_draws_a_visible_ring(board):
     assert card.screenshot(animations="disabled") != before, "the focused card looks exactly like the unfocused one"
 
 
+def focused_video(page):
+    return page.evaluate("document.activeElement.closest('.card')?.dataset.video")
+
+
+def test_keyboard_focus_survives_seen_and_undo(board):
+    """The control that had focus was swapped away with its card or toast, so the next Tab began at the top."""
+    page, _, _ = board
+    first, second = (cards(page).nth(i).get_attribute("data-video") for i in (0, 1))
+    cards(page).first.locator(".card__seen button").focus()
+    page.keyboard.press("Enter")
+    expect(page.locator(f'[data-video="{first}"]')).to_have_count(0)
+    expect(page.locator(".card__picture").first).to_be_focused()
+    assert focused_video(page) == second
+    page.locator(".toast button").focus()
+    page.keyboard.press("Enter")
+    expect(page.locator(f'[data-video="{first}"] .card__picture')).to_be_focused()
+
+
+def test_keyboard_focus_lands_on_the_first_new_card_after_show_more(browser, fresh_scene):
+    scene = fresh_scene("populated")
+    scene.services().settings.update({"page_size": 6})
+    context = open_context(browser)
+    page = context.new_page()
+    page.goto(scene.url + "/", wait_until="networkidle")
+    page.locator("#more-link").focus()
+    page.keyboard.press("Enter")
+    expect(cards(page)).to_have_count(12)
+    expect(cards(page).nth(6).locator(".card__picture")).to_be_focused()
+    context.close()
+
+
+def test_keyboard_focus_comes_back_to_check_now(board):
+    page, _, _ = board
+    page.get_by_role("button", name="Check now").focus()
+    page.keyboard.press("Enter")
+    expect(page.locator(".toast")).to_be_visible()
+    expect(page.get_by_role("button", name="Check now")).to_be_focused()
+
+
 def test_tab_reaches_everything_in_a_sensible_order(board):
     page, _, _ = board
     page.keyboard.press("Tab")
