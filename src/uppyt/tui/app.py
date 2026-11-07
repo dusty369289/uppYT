@@ -83,6 +83,7 @@ class HelpScreen(ModalScreen):
 
 
 class ConfirmScreen(ModalScreen[bool]):
+    AUTO_FOCUS = "#no"  # a stray Enter cancels
     BINDINGS = [Binding("escape", "dismiss(False)", "Cancel")]
 
     def __init__(self, question: str, action: str):
@@ -105,6 +106,8 @@ class ConfirmScreen(ModalScreen[bool]):
 @implements("tui", "profiles.list", "profiles.create")
 class ProfileScreen(ModalScreen[str]):
     """Choosing who's using uppYT, or creating the first profile."""
+
+    AUTO_FOCUS = "#profiles, #new-profile"
 
     def compose(self) -> ComposeResult:
         names = self.app.runtime.profile_names()
@@ -133,6 +136,7 @@ class ProfileScreen(ModalScreen[str]):
 
 
 class FilterScreen(ModalScreen[dict | None]):
+    AUTO_FOCUS = "#window"
     BINDINGS = [Binding("escape", "dismiss(None)", "Cancel")]
 
     def compose(self) -> ComposeResult:
@@ -178,6 +182,7 @@ class FilterScreen(ModalScreen[dict | None]):
 class AddChannelScreen(ModalScreen[bool]):
     """Paste a link, see what the channel offers, choose, follow."""
 
+    AUTO_FOCUS = "#link"
     BINDINGS = [Binding("escape", "dismiss(False)", "Cancel")]
 
     def __init__(self) -> None:
@@ -271,6 +276,7 @@ class AddChannelScreen(ModalScreen[bool]):
 
 @implements("tui", "channels.get", "channels.set", "channels.remove")
 class ChannelEditScreen(ModalScreen[bool]):
+    AUTO_FOCUS = "#priority"
     BINDINGS = [Binding("escape", "dismiss(False)", "Cancel")]
 
     def __init__(self, channel_id: str):
@@ -446,6 +452,7 @@ class SeenScreen(Screen):
 
 @implements("tui", "settings.get", "settings.update")
 class SettingsScreen(ModalScreen[bool]):
+    AUTO_FOCUS = "Input"
     BINDINGS = [Binding("escape", "dismiss(False)", "Cancel")]
     NUMBERS = (
         ("window_days", "Default window, in days"),
@@ -493,6 +500,7 @@ class SettingsScreen(ModalScreen[bool]):
 
 @implements("tui", "transfer.import", "transfer.export", "backup.create")
 class TransferScreen(ModalScreen[bool]):
+    AUTO_FOCUS = "#import-path"
     BINDINGS = [Binding("escape", "dismiss(False)", "Close")]
 
     def compose(self) -> ComposeResult:

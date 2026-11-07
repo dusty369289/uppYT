@@ -630,3 +630,76 @@ async def test_the_seen_list_isnt_cut_off(scene):
         await pilot.press("v")
         await pilot.pause()
         assert len(rows(app, "#seen")) == 600
+
+
+# Dialogs start on their first real control, so typing works without clicking first.
+
+
+async def test_typing_a_first_profile_name_works_straight_away(scene):
+    app = scene.app(profile=None)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press(*"alex", "enter")
+        await settle(app, pilot)
+        assert scene.runtime.profile_names() == ["alex"]
+        assert "alex" in status(app)
+
+
+async def test_typing_a_link_after_a_works_straight_away(scene):
+    app = scene.app()
+    async with app.run_test(size=(100, 50)) as pilot:
+        await pilot.pause()
+        await pilot.press("a", *"@mkbhd", "enter")
+        await settle(app, pilot)
+        assert "Marques Brownlee" in str(app.screen.query_one("#found", Static).render())
+
+
+async def test_switching_profile_by_keyboard_alone(scene):
+    scene.services("dusty")
+    scene.services("nat").channels.add("@veritasium")
+    app = scene.app()
+    async with app.run_test(size=(100, 50)) as pilot:
+        await pilot.pause()
+        await pilot.press("p")
+        await pilot.pause()
+        names = [n[0] for n in rows(app, "#profiles")]
+        await pilot.press(*(["down"] * names.index("nat")), "enter")
+        await settle(app, pilot)
+        assert "nat" in status(app)
+
+
+@pytest.mark.parametrize(
+    ("key", "screen", "first"),
+    [
+        ("slash", FilterScreen, "window"),
+        ("comma", SettingsScreen, "set-window_days"),
+        ("i", TransferScreen, "import-path"),
+    ],
+)
+async def test_each_dialog_starts_on_its_first_control(scene, key, screen, first):
+    scene.services().channels.add("@veritasium")
+    app = scene.app()
+    async with app.run_test(size=(100, 60)) as pilot:
+        await pilot.pause()
+        await pilot.press(key)
+        await pilot.pause()
+        assert isinstance(app.screen, screen)
+        assert app.focused is not None and app.focused.id == first
+
+
+async def test_the_edit_dialog_starts_on_priority_and_confirm_on_cancel(scene):
+    scene.services().channels.add("@veritasium")
+    app = scene.app()
+    async with app.run_test(size=(100, 50)) as pilot:
+        await pilot.pause()
+        await pilot.press("c")
+        await pilot.pause()
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app.focused.id == "priority"
+        await pilot.click("#remove")
+        await pilot.pause()
+        assert app.focused.id == "no"
+        await pilot.press("enter")  # a stray Enter cancels, it doesn't stop following
+        await settle(app, pilot)
+        assert scene.services().store.subscriptions()
