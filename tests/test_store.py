@@ -6,6 +6,7 @@ import subprocess
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import timedelta
 
 import pytest
@@ -236,6 +237,15 @@ def test_a_schema_1_database_keeps_its_history_when_migrated(tmp_path):
 
 
 # Polling
+
+
+def test_a_feed_listing_a_video_twice_can_still_be_saved(catalogue):
+    """Every entry has to land even when one repeats, or the other 14 are lost on every poll."""
+    feed = entries(MKBHD, 3)
+    doubled = replace(feed, entries=(*feed.entries, feed.entries[0]))
+    assert catalogue.record_success(MKBHD, FeedKind.VIDEOS, doubled, NOW, LATER).new_videos == 3
+    assert catalogue.record_entries(MKBHD, FeedKind.SHORTS, doubled.entries, NOW).new_videos == 3
+    assert len(catalogue.videos([MKBHD])) == 3
 
 
 def test_the_first_poll_records_where_history_starts(catalogue):

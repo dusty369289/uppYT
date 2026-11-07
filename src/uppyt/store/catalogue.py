@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -187,6 +187,12 @@ def _statements(script: str) -> list[str]:
     return statements
 
 
+def _once_each(entries: Iterable[FeedEntry]) -> tuple[FeedEntry, ...]:
+    """Feed text is untrusted, and a video saved twice breaks the whole save. The first listing wins."""
+    seen: set[str] = set()
+    return tuple(e for e in entries if not (e.video_id in seen or seen.add(e.video_id)))
+
+
 @dataclass(frozen=True)
 class PollResult:
     new_videos: int
@@ -273,6 +279,7 @@ class Catalogue:
         self, channel_id: str, kind: FeedKind, feed: ParsedFeed, now: datetime, next_check: datetime
     ) -> PollResult:
         """Keep a feed's entries, and work out whether anything may have been missed since last time."""
+        feed = replace(feed, entries=_once_each(feed.entries))
         with Session(self._writer) as session:
             row = self._feed_row(session, channel_id, kind)
             first_success = row.last_success_at is None
@@ -326,7 +333,7 @@ class Catalogue:
     ) -> PollResult:
         """Videos known to belong to a feed, learned some other way. The feed's own state stays as it was, except that
         a full source with nothing familiar means uploads may have been missed, the same as for the feed itself."""
-        items = list(entries)
+        items = list(_once_each(entries))
         with Session(self._writer) as session:
             known = set(
                 session.exec(
