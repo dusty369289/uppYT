@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from uuid import uuid4
 
-from ..domain.errors import UserError
+from ..domain.errors import UserError, message_for_people
 from ..services.views import ImportReport
 
 log = logging.getLogger("uppyt.jobs")
@@ -40,7 +40,7 @@ class ImportJobs:
             try:
                 job.report = work(progress)
             except UserError as error:
-                job.problem = str(error)
+                job.problem = message_for_people(error)
             except Exception:
                 log.exception("Import failed")
                 job.problem = "The import stopped unexpectedly. Anything already added has been kept."

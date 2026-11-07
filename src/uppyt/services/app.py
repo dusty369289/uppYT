@@ -302,7 +302,9 @@ class ChannelService:
                 raise UserError(f"More than one channel is called {reference}. Use its ID: {', '.join(named)}.")
             if named:
                 return named[0]
-        raise NotFound(f"You don't follow {reference}. See who you do with: uppyt channels ls")
+        known = self._runtime.catalogue.channels([reference]).get(reference)  # say who, if it's an ID we know
+        name = known.name if known else reference
+        raise NotFound(f"You don't follow {name}.", cli_hint="See who you do with: uppyt channels ls")
 
     @operation("channels.list", "List followed channels")
     def list(self) -> list[ChannelSummary]:

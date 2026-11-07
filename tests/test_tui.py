@@ -725,7 +725,8 @@ async def test_a_channel_removed_elsewhere_is_reported_not_a_crash(scene):
         await pilot.pause()
         assert app.is_running
         assert isinstance(app.screen, ChannelsScreen)
-        assert any("don't follow" in m for m in notified(app))
+        assert "You don't follow Veritasium." in notified(app)  # its name, and no command to type
+        assert not any("uppyt channels" in m for m in notified(app))
         assert rows(app, "#channels") == []
 
 

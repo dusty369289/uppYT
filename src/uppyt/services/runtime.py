@@ -120,7 +120,7 @@ class Runtime:
             return self.directory.get(name)
         names = self.directory.names()
         if not names:
-            raise ProfileError("There are no profiles yet. Create one with: uppyt profiles add NAME")
+            raise ProfileError("There are no profiles yet.", cli_hint="Create one with: uppyt profiles add NAME")
         if len(names) > 1:
             raise ProfileError(
                 f"Choose a profile with --profile NAME, or set UPPYT_PROFILE. There are: {', '.join(names)}."

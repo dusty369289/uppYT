@@ -222,13 +222,14 @@ def create_app(
     async def user_error(request: Request, error: UserError):
         status = 404 if isinstance(error, NotFound) else 400
         if _is_htmx(request):
-            toast = templates.get_template("_toast.html").render(message=str(error))
+            toast = templates.get_template("_toast.html").render(message=message_for_people(error))
             return HTMLResponse(toast, status_code=200, headers={"HX-Reswap": "none"})
         try:
             profile = services(request)
         except NeedsProfile:
             profile = None
-        return render(request, "problem.html", {"profile": profile, "message": str(error)}, status=status)
+        context = {"profile": profile, "message": message_for_people(error)}
+        return render(request, "problem.html", context, status=status)
 
     @app.exception_handler(404)
     async def not_found(request: Request, _error):
@@ -287,7 +288,7 @@ def create_app(
             return _chosen(runtime.create_profile(name))
         except ProfileError as error:
             template = "profiles.html" if runtime.profile_names() else "welcome.html"
-            context = {"names": runtime.profile_names(), "problem": str(error), "typed": name}
+            context = {"names": runtime.profile_names(), "problem": message_for_people(error), "typed": name}
             return render(request, template, context, status=400)
 
     @app.post("/profiles/use")
@@ -375,7 +376,7 @@ def create_app(
         try:
             preview = app_services.channels.lookup(link)
         except UserError as error:
-            context = {"profile": app_services, "preview": None, "problem": str(error), "link": link}
+            context = {"profile": app_services, "preview": None, "problem": message_for_people(error), "link": link}
             return render(request, "add.html", context, status=400)
         return render(request, "add.html", {"profile": app_services, "preview": preview, "problem": None, "link": link})
 
@@ -427,7 +428,7 @@ def create_app(
             raise
         except UserError as error:
             detail = app_services.channels.get(channel_id)
-            context = {"profile": app_services, "detail": detail, "problem": str(error)}
+            context = {"profile": app_services, "detail": detail, "problem": message_for_people(error)}
             return render(request, "channel.html", context, status=400)
         return _see_other(f"/channels/{channel_id}?saved=1")
 

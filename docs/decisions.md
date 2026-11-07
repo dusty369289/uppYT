@@ -208,3 +208,4 @@ Nine reviewers covered correctness, web UX, CSS, the terminal app, the CLI, secu
 - **`uppyt refresh` exits 2 only when YouTube is down,** as the README says. One failing feed rechecked alone is reported but exits 0.
 - `feed_states`, read on every check, now reads plain columns: about 9 ms down to about 3 ms each, which also made the simulations fit the 10 s limit.
 - 40 random nights (different seeds) all passed: nothing wrongly absent, nothing lost, under 1.5 requests per check while down.
+- **The web and terminal apps leave out command-line hints, and name the channel.** "You don't follow Veritasium." there; the CLI adds "See who you do with: uppyt channels ls". An error carries the hint separately (`cli_hint`), so one message serves all three.

@@ -972,3 +972,15 @@ def test_an_unknown_setting_lists_the_real_ones(scene, name):
         scene.app.settings.update({name: 1})
     assert "head_starts.must_see" in str(error.value)
     assert "page_size" in str(error.value)
+
+
+def test_not_following_names_the_channel_and_keeps_the_command_for_the_command_line(scene):
+    """The web and terminal apps can't type commands, so they get the plain sentence. The CLI gets the hint too."""
+    from uppyt.domain.errors import message_for_people
+
+    scene.app.channels.add("@veritasium")
+    scene.app.channels.remove(SECOND)
+    with pytest.raises(NotFound) as caught:
+        scene.app.channels.get(SECOND)
+    assert message_for_people(caught.value) == "You don't follow Veritasium."
+    assert str(caught.value) == "You don't follow Veritasium. See who you do with: uppyt channels ls"

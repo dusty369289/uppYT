@@ -320,6 +320,14 @@ def test_a_channel_you_dont_follow_is_a_404(followed):
     assert followed.get("/channels/UCxxxxxxxxxxxxxxxxxxxxxx").status_code == 404
 
 
+def test_a_channel_you_stopped_following_is_named_without_a_command(followed):
+    followed.services().channels.remove(SECOND)
+    response = followed.get(f"/channels/{SECOND}")
+    assert response.status_code == 404
+    assert "You don't follow Veritasium." in unescape(response.text)
+    assert "uppyt channels" not in response.text
+
+
 def test_saving_a_channel(followed):
     response = followed.post(
         f"/channels/{SECOND}", data={"priority": "low", "feeds": ["videos"], "tags": "new", "window": "9"}

@@ -141,7 +141,7 @@ class ProfileScreen(ModalScreen[str]):
         try:
             self.dismiss(self.app.runtime.create_profile(event.value))
         except UserError as error:
-            self.query_one("#problem", Static).update(Text(str(error)))
+            self.query_one("#problem", Static).update(Text(message_for_people(error)))
 
 
 class FilterScreen(ModalScreen[dict | None]):
@@ -236,7 +236,7 @@ class AddChannelScreen(ModalScreen[bool]):
             try:
                 preview = self.app.services.channels.lookup(link)
             except UserError as error:
-                message = str(error)
+                message = message_for_people(error)
                 self.app.call_from_thread(self._show_problem, message)
             else:
                 self.app.call_from_thread(self._show_preview, preview)
@@ -279,7 +279,7 @@ class AddChannelScreen(ModalScreen[bool]):
             try:
                 self.app.services.channels.add(preview.channel.id, priority=priority, feeds=feeds, tags=tags)
             except UserError as error:
-                message = str(error)
+                message = message_for_people(error)
                 self.app.call_from_thread(self._show_problem, message)
             else:
                 self.app.call_from_thread(self.dismiss, True)
@@ -347,7 +347,7 @@ class ChannelEditScreen(ModalScreen[bool]):
                     self.channel_id, priority=priority, feeds=feeds, tags=tags, window_days=window_days
                 )
             except UserError as error:
-                message = str(error)
+                message = message_for_people(error)
                 self.app.call_from_thread(self.query_one("#problem", Static).update, Text(message))
             else:
                 self.app.call_from_thread(self.dismiss, True)
@@ -577,7 +577,7 @@ class TransferScreen(ModalScreen[bool]):
             except OSError as error:
                 message = f"Couldn't read that file: {error.strerror}."
             except UserError as error:
-                message = str(error)
+                message = message_for_people(error)
             self.app.call_from_thread(self._say, message)
             self.app.call_from_thread(self.app.reload_board)
 
@@ -591,7 +591,7 @@ class TransferScreen(ModalScreen[bool]):
         except OSError as error:
             self._say(f"Couldn't write that file: {error.strerror}.")
         except UserError as error:
-            self._say(str(error))
+            self._say(message_for_people(error))
         else:
             self._say(f"Wrote {path}.")
 
@@ -602,7 +602,7 @@ class TransferScreen(ModalScreen[bool]):
         except OSError as error:
             self._say(f"Couldn't back up: {error.strerror or error}.")
         except UserError as error:
-            self._say(str(error))
+            self._say(message_for_people(error))
         else:
             self._say(f"Backed up to {folder}.")
 
@@ -690,7 +690,7 @@ class UppytApp(App):
 
     def report(self, error: Exception) -> None:
         """Errors meant for people (a broken file, a channel removed elsewhere) are shown, not crashes."""
-        self.notify(str(error), severity="error", markup=False, timeout=8)
+        self.notify(message_for_people(error), severity="error", markup=False, timeout=8)
 
     def reload_board(self) -> None:
         if self.services is None:
@@ -702,7 +702,7 @@ class UppytApp(App):
             view = self.services.board.view(window_days=self.window_days, kinds=self.kinds, tag=self.tag, limit=2000)
         except UserError as error:
             # A hand edit uppYT can't read: say what's wrong, and leave the file for the person to fix.
-            self.profile_problem = str(error)
+            self.profile_problem = message_for_people(error)
             table.clear()
             self.query_one("#status", Static).update(Text(f"{self.services.store.name}  This profile can't be shown."))
             notes.update(Text(self.profile_problem))

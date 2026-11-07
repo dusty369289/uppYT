@@ -4,7 +4,17 @@ from __future__ import annotations
 
 
 class UserError(Exception):
-    pass
+    """cli_hint is a command to try, added to the message on the command line. The web and terminal apps leave it off,
+    since a person there can't type it."""
+
+    def __init__(self, message: str = "", *, cli_hint: str | None = None):
+        super().__init__(f"{message} {cli_hint}" if cli_hint else message)
+        self.plain = message
+        self.cli_hint = cli_hint
+
+    @property
+    def for_people(self) -> str:
+        return self.plain if self.cli_hint else str(self)
 
 
 class NotFound(UserError):
@@ -24,5 +34,6 @@ class SettingError(UserError):
         return str(self).replace(f" ({self.field})", "", 1)
 
 
-def message_for_people(error: UserError) -> str:
-    return error.for_people if isinstance(error, SettingError) else str(error)
+def message_for_people(error: BaseException) -> str:
+    """The message for the web and terminal apps: no internal names, no commands to type."""
+    return error.for_people if isinstance(error, UserError) else str(error)
