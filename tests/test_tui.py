@@ -703,3 +703,65 @@ async def test_the_edit_dialog_starts_on_priority_and_confirm_on_cancel(scene):
         await pilot.press("enter")  # a stray Enter cancels, it doesn't stop following
         await settle(app, pilot)
         assert scene.services().store.subscriptions()
+
+
+# Errors meant for people are shown, not crashes.
+
+
+def notified(app) -> list[str]:
+    return [str(n.message) for n in app._notifications]
+
+
+async def test_a_channel_removed_elsewhere_is_reported_not_a_crash(scene):
+    scene.services().channels.add("@veritasium")
+    app = scene.app()
+    async with app.run_test(size=(100, 50)) as pilot:
+        await pilot.pause()
+        await pilot.press("c")
+        await pilot.pause()
+        scene.services().channels.remove(SECOND)  # as the web app would
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app.is_running
+        assert isinstance(app.screen, ChannelsScreen)
+        assert any("don't follow" in m for m in notified(app))
+        assert rows(app, "#channels") == []
+
+
+async def test_a_broken_seen_file_is_reported_not_a_crash(scene):
+    services = scene.services()
+    services.channels.add("@veritasium")
+    app = scene.app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        (services.store.folder / "seen.json").write_text("{broken", encoding="utf-8")
+        await pilot.press("s")
+        await pilot.pause()
+        await pilot.press("u")
+        await pilot.pause()
+        assert app.is_running
+        assert len([m for m in notified(app) if "seen.json" in m]) == 2
+
+
+async def test_broken_settings_are_reported_not_a_crash(scene):
+    services = scene.services()
+    app = scene.app()
+    async with app.run_test(size=(100, 60)) as pilot:
+        await pilot.pause()
+        (services.store.folder / "settings.toml").write_text("window_days = [", encoding="utf-8")
+        await pilot.press("comma")
+        await pilot.pause()
+        assert app.is_running
+        assert not isinstance(app.screen, SettingsScreen)
+        assert any("settings.toml" in m for m in notified(app))
+
+
+async def test_broken_settings_at_launch_are_reported_not_a_crash(scene):
+    services = scene.services()
+    services.channels.add("@veritasium")
+    (services.store.folder / "settings.toml").write_text("window_days = [", encoding="utf-8")
+    app = scene.app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app.is_running
+        assert any("settings.toml" in m for m in notified(app))

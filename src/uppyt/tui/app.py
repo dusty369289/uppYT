@@ -20,12 +20,12 @@ from textual.widgets import Button, Checkbox, DataTable, Footer, Input, Label, S
 from ..domain.errors import UserError
 from ..domain.feeds import SPECS, TOGGLES, FeedKind
 from ..domain.models import Priority
-from ..domain.settings import WINDOW_CHOICES, window_label
+from ..domain.settings import WINDOW_CHOICES, Settings, window_label
 from ..ops import implements
 from ..services.app import UppYT
 from ..services.refresh import RefreshLoop
 from ..services.runtime import Runtime
-from ..services.views import ChannelPreview
+from ..services.views import ChannelDetail, ChannelPreview
 from ..store.profiles import ProfileStore
 
 PRIORITY_OPTIONS = [(p.label, p) for p in reversed(Priority)]
@@ -139,9 +139,13 @@ class FilterScreen(ModalScreen[dict | None]):
     AUTO_FOCUS = "#window"
     BINDINGS = [Binding("escape", "dismiss(None)", "Cancel")]
 
+    def __init__(self, tags: list[str]):
+        super().__init__()
+        self.tags = tags
+
     def compose(self) -> ComposeResult:
         app = self.app
-        tags = app.services.board.view(limit=1).tags
+        tags = self.tags
         options = list(WINDOW_OPTIONS)
         if app.window_days not in dict(WINDOW_CHOICES):
             options.append((window_label(app.window_days), app.window_days))
@@ -279,12 +283,13 @@ class ChannelEditScreen(ModalScreen[bool]):
     AUTO_FOCUS = "#priority"
     BINDINGS = [Binding("escape", "dismiss(False)", "Cancel")]
 
-    def __init__(self, channel_id: str):
+    def __init__(self, detail: ChannelDetail):
         super().__init__()
-        self.channel_id = channel_id
+        self.detail = detail
+        self.channel_id = detail.channel.id
 
     def compose(self) -> ComposeResult:
-        detail = self.app.services.channels.get(self.channel_id)
+        detail = self.detail
         subscription = detail.subscription
         with VerticalScroll(classes="dialog"):
             yield Label(Text(detail.channel.name), classes="heading")
@@ -342,11 +347,14 @@ class ChannelEditScreen(ModalScreen[bool]):
 
     @on(Button.Pressed, "#remove")
     def stop_following(self) -> None:
-        name = self.app.services.channels.get(self.channel_id).channel.name
+        name = self.detail.channel.name
 
         def decided(yes: bool | None) -> None:
             if yes:
-                self.app.services.channels.remove(self.channel_id)
+                try:
+                    self.app.services.channels.remove(self.channel_id)
+                except UserError as error:
+                    self.app.report(error)
                 self.dismiss(True)
 
         self.app.push_screen(ConfirmScreen(f"Stop following {name}? Its history is kept.", "Stop following"), decided)
@@ -375,7 +383,12 @@ class ChannelsScreen(Screen):
     def reload(self) -> None:
         table = self.query_one("#channels", DataTable)
         table.clear()
-        for summary in self.app.services.channels.list():
+        try:
+            summaries = self.app.services.channels.list()
+        except UserError as error:
+            self.app.report(error)
+            summaries = []
+        for summary in summaries:
             feeds = ",".join(SPECS[k].label for k in TOGGLES if k in summary.subscription.feeds)
             name = summary.channel.name + (f" ({summary.problem})" if summary.problem else "")
             table.add_row(
@@ -394,7 +407,13 @@ class ChannelsScreen(Screen):
 
     @on(DataTable.RowSelected, "#channels")
     def edit(self, event: DataTable.RowSelected) -> None:
-        self.app.push_screen(ChannelEditScreen(str(event.row_key.value)), self._changed)
+        try:
+            detail = self.app.services.channels.get(str(event.row_key.value))
+        except UserError as error:  # stopped following elsewhere, say from the web app
+            self.app.report(error)
+            self._changed(True)
+            return
+        self.app.push_screen(ChannelEditScreen(detail), self._changed)
 
     def action_add(self) -> None:
         self.app.push_screen(AddChannelScreen(), self._changed)
@@ -429,7 +448,12 @@ class SeenScreen(Screen):
     def reload(self) -> None:
         table = self.query_one("#seen", DataTable)
         table.clear()
-        for item in self.app.services.seen.list(limit=1_000_000).items:
+        try:
+            items = self.app.services.seen.list(limit=1_000_000).items
+        except UserError as error:
+            self.app.report(error)
+            items = []
+        for item in items:
             name = item.channel.name if item.channel else ""
             table.add_row(plain(name), plain(item.age), plain(item.video.title), key=item.video.id)
         table.focus()
@@ -439,7 +463,10 @@ class SeenScreen(Screen):
         if not table.row_count:
             return
         key = table.coordinate_to_cell_key(table.cursor_coordinate).row_key.value
-        self.app.services.seen.undo(str(key))
+        try:
+            self.app.services.seen.undo(str(key))
+        except UserError as error:
+            self.app.report(error)
         self.reload()
         self.app.reload_board()
 
@@ -468,8 +495,12 @@ class SettingsScreen(ModalScreen[bool]):
     def _input_id(name: str) -> str:
         return "set-" + name.replace(".", "-")
 
+    def __init__(self, settings: Settings):
+        super().__init__()
+        self.settings = settings
+
     def compose(self) -> ComposeResult:
-        data = self.app.services.settings.get().model_dump()
+        data = self.settings.model_dump()
         with VerticalScroll(classes="dialog"):
             yield Label("Settings", classes="heading")
             for name, label in self.NUMBERS:
@@ -554,7 +585,14 @@ class TransferScreen(ModalScreen[bool]):
 
     @on(Button.Pressed, "#backup")
     def backup(self) -> None:
-        self._say(f"Backed up to {self.app.services.backup.create().folder}.")
+        try:
+            folder = self.app.services.backup.create().folder
+        except OSError as error:
+            self._say(f"Couldn't back up: {error.strerror or error}.")
+        except UserError as error:
+            self._say(str(error))
+        else:
+            self._say(f"Backed up to {folder}.")
 
     @on(Button.Pressed, "#close")
     def close_screen(self) -> None:
@@ -621,7 +659,10 @@ class UppytApp(App):
             self._begin()
 
     def _begin(self) -> None:
-        self.window_days = self.services.settings.get().window_days
+        try:
+            self.window_days = self.services.settings.get().window_days
+        except UserError as error:
+            self.report(error)
         self.reload_board()
         self.query_one("#board", DataTable).focus()
         if self.background_refresh and self._refresh_loop is None:
@@ -634,12 +675,20 @@ class UppytApp(App):
         if self._refresh_loop:
             self._refresh_loop.stop()
 
+    def report(self, error: Exception) -> None:
+        """Errors meant for people (a broken file, a channel removed elsewhere) are shown, not crashes."""
+        self.notify(str(error), severity="error", markup=False, timeout=8)
+
     def reload_board(self) -> None:
         if self.services is None:
             return
         table = self.query_one("#board", DataTable)
         row = table.cursor_row
-        view = self.services.board.view(window_days=self.window_days, kinds=self.kinds, tag=self.tag, limit=2000)
+        try:
+            view = self.services.board.view(window_days=self.window_days, kinds=self.kinds, tag=self.tag, limit=2000)
+        except UserError as error:
+            self.report(error)
+            return
         table.clear()
         for card in view.cards:
             label = "" if card.priority is Priority.NORMAL else card.priority.label
@@ -675,13 +724,21 @@ class UppytApp(App):
     def action_mark_seen(self) -> None:
         video = self._selected_video()
         if video and self._on_board():
-            self.services.seen.mark(video)
+            try:
+                self.services.seen.mark(video)
+            except UserError as error:
+                self.report(error)
+                return
             self.reload_board()
             self.notify("Marked as seen. Press u to undo.", markup=False, timeout=4)
 
     def action_undo(self) -> None:
         if self._on_board():
-            restored = self.services.seen.undo()
+            try:
+                restored = self.services.seen.undo()
+            except UserError as error:
+                self.report(error)
+                return
             self.reload_board()
             self.notify("Put back on the board." if restored else "Nothing to undo.", markup=False, timeout=3)
 
@@ -720,12 +777,21 @@ class UppytApp(App):
 
     def _settings_closed(self, saved: bool | None) -> None:
         if saved:
-            self.window_days = self.services.settings.get().window_days
+            try:
+                self.window_days = self.services.settings.get().window_days
+            except UserError as error:
+                self.report(error)
             self.reload_board()
 
     def action_settings(self) -> None:
-        if self.services:
-            self.push_screen(SettingsScreen(), self._settings_closed)
+        if not self.services:
+            return
+        try:
+            settings = self.services.settings.get()
+        except UserError as error:
+            self.report(error)
+            return
+        self.push_screen(SettingsScreen(settings), self._settings_closed)
 
     def action_transfer(self) -> None:
         if self.services:
@@ -745,7 +811,12 @@ class UppytApp(App):
                 self.tag = choice["tag"]
                 self.reload_board()
 
-        self.push_screen(FilterScreen(), apply)
+        try:
+            tags = self.services.board.view(limit=1).tags
+        except UserError as error:
+            self.report(error)
+            return
+        self.push_screen(FilterScreen(tags), apply)
 
     def action_profiles(self) -> None:
         def chosen(name: str | None) -> None:
