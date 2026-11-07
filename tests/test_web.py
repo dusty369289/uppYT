@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from html import unescape
 
 import pytest
@@ -368,6 +369,21 @@ def test_settings_save_and_apply(followed):
     assert "Settings saved" in response.text
     assert 'data-appearance="light"' in response.text
     assert followed.cards() == 2
+
+
+def test_every_settings_field_on_the_page_is_saved(followed):
+    """save_settings copies a list of field names, so a name it misspells is dropped without a word."""
+    page = followed.get("/settings").text
+    form = page.split('action="/settings"')[1].split("</form>")[0]
+    names = set(re.findall(r'name="([^"]+)"', form))
+    assert names == {"window_days", "appearance", "page_size", "repeat_penalty_days",
+                     "head_starts.must_see", "head_starts.high", "head_starts.normal", "head_starts.low"}  # fmt: skip
+    data = {"window_days": "11", "appearance": "dark", "page_size": "12", "repeat_penalty_days": "3",
+            "head_starts.must_see": "50", "head_starts.high": "20", "head_starts.normal": "5", "head_starts.low": "1"}  # fmt: skip
+    assert followed.post("/settings", data=data).status_code == 200
+    saved = followed.services().settings.get()
+    assert (saved.window_days, saved.appearance, saved.page_size, saved.repeat_penalty_days) == (11, "dark", 12, 3)
+    assert saved.head_starts.model_dump() == {"must_see": 50, "high": 20, "normal": 5, "low": 1}
 
 
 def test_bad_settings_say_why(followed):
