@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
+import errno
 import functools
+import logging
 import os
 import sys
 import webbrowser
@@ -15,7 +18,7 @@ from .. import __version__
 from ..domain.errors import UserError
 from ..domain.feeds import TOGGLES, FeedKind
 from ..domain.models import Priority
-from ..domain.settings import window_label
+from ..domain.settings import MAX_WINDOW_DAYS, setting_names, window_label
 from ..ops import implements
 from ..services.app import UNSET, UppYT
 from ..services.runtime import Paths, Runtime
@@ -32,6 +35,9 @@ app.add_typer(settings_app, name="settings")
 ProfileOption = Annotated[
     str | None, typer.Option("--profile", "-p", help="Which profile to use", envvar="UPPYT_PROFILE")
 ]
+# The same option after a command, so `uppyt board --profile NAME` works too. No envvar here: UPPYT_PROFILE is read
+# once, by the root, so it can't quietly override a --profile typed before the command.
+CommandProfileOption = Annotated[str | None, typer.Option("--profile", "-p", help="Which profile to use")]
 JsonOption = Annotated[bool, typer.Option("--json", help="Print JSON for scripts")]
 FEEDS_HELP = f"Comma-separated feeds: {', '.join(k.value for k in TOGGLES)}"
 PRIORITY_HELP = "low, normal, high or must-see"
@@ -65,6 +71,10 @@ def friendly(function):
             raise typer.Exit(1) from error
 
     return wrapper
+
+
+def _count(n: int, one: str, many: str | None = None) -> str:
+    return f"{n} {one if n == 1 else many or one + 's'}"
 
 
 def _parse_feeds(text: str | None) -> list[FeedKind] | None:
@@ -106,6 +116,7 @@ def _print_detail(detail) -> None:
 
 
 @app.callback(invoke_without_command=True)
+@friendly
 def main(
     ctx: typer.Context,
     cli: Annotated[bool, typer.Option("--cli", help="Open the terminal app instead of the web app")] = False,
@@ -146,6 +157,48 @@ def _allowed_hosts(host: str) -> frozenset[str] | None:
     return frozenset({"localhost", "127.0.0.1", "[::1]", host, *extra})
 
 
+def _url(host: str, port: int) -> str:
+    """The address to print and open. Listening everywhere is reached as localhost, and IPv6 needs brackets."""
+    if host in ("127.0.0.1", "0.0.0.0", "::"):
+        host = "localhost"
+    elif ":" in host:
+        host = f"[{host}]"
+    return f"http://{host}:{port}"
+
+
+class _Keep(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
+def _bind(config, host: str, port: int, url: str):
+    """uvicorn's own bind, made before anything is printed, so a taken port is a sentence and opens no browser.
+
+    uvicorn logs the error and exits, so the log is caught here to say what went wrong in its place."""
+    log = logging.getLogger("uvicorn.error")
+    kept, propagate = _Keep(), log.propagate
+    log.addHandler(kept)
+    log.propagate = False
+    try:
+        return config.bind_socket()
+    except SystemExit:
+        error = next((r.msg for r in kept.records if isinstance(r.msg, OSError)), None)
+        if error is not None and error.errno == errno.EADDRINUSE:
+            raise UserError(
+                f"Port {port} is already in use. If uppYT is already running, open {url}, "
+                "or start on another port with --port."
+            ) from None
+        reason = (error.strerror or str(error)) if error is not None else "uvicorn couldn't start"
+        raise UserError(f"Couldn't listen on {host} port {port}: {reason}.") from None
+    finally:
+        log.removeHandler(kept)
+        log.propagate = propagate
+
+
 def _run_web_app(session: Session, host: str, port: int, open_browser: bool) -> None:
     import threading
 
@@ -153,15 +206,21 @@ def _run_web_app(session: Session, host: str, port: int, open_browser: bool) -> 
 
     from ..web.app import create_app
 
-    url = f"http://{'localhost' if host in ('127.0.0.1', '0.0.0.0') else host}:{port}"
+    url = _url(host, port)
+    config = uvicorn.Config(
+        create_app(session.runtime, allowed_hosts=_allowed_hosts(host)), host=host, port=port, log_level="warning"
+    )
+    listening = _bind(config, host, port, url)
     typer.echo(f"uppYT is running at {url}")
     if host not in ("127.0.0.1", "localhost", "::1"):
         typer.echo("Warning: anyone who can reach this address can see and change every profile.", err=True)
     if open_browser:
         threading.Timer(0.8, webbrowser.open, args=(url,)).start()
-    uvicorn.run(
-        create_app(session.runtime, allowed_hosts=_allowed_hosts(host)), host=host, port=port, log_level="warning"
-    )
+    server = uvicorn.Server(config)
+    with contextlib.suppress(KeyboardInterrupt):  # as uvicorn.run does: Ctrl+C is a clean stop
+        server.run(sockets=[listening])
+    if not server.started:  # and a failed startup exits 3
+        raise typer.Exit(3)
 
 
 @implements("cli", "board.view")
@@ -169,17 +228,20 @@ def _run_web_app(session: Session, host: str, port: int, open_browser: bool) -> 
 @friendly
 def board(
     ctx: typer.Context,
-    limit: Annotated[int, typer.Option(help="How many to show")] = 20,
-    offset: Annotated[int, typer.Option(help="How many to skip")] = 0,
-    window: Annotated[int | None, typer.Option(help="How many days back. Defaults to your setting")] = None,
+    limit: Annotated[int, typer.Option(help="How many to show", min=1)] = 20,
+    offset: Annotated[int, typer.Option(help="How many to skip", min=0)] = 0,
+    window: Annotated[
+        int | None, typer.Option(help="How many days back. Defaults to your setting", min=1, max=MAX_WINDOW_DAYS)
+    ] = None,
     kinds: Annotated[str | None, typer.Option(help=FEEDS_HELP)] = None,
     tag: Annotated[str | None, typer.Option(help="Only channels with this tag")] = None,
     as_json: JsonOption = False,
+    profile: CommandProfileOption = None,
 ) -> None:
     """Show the ranked board."""
     view = (
         _session(ctx)
-        .app()
+        .app(profile)
         .board.view(window_days=window, kinds=_parse_feeds(kinds), tag=tag, offset=offset, limit=limit)
     )
     if as_json:
@@ -187,7 +249,7 @@ def board(
         return
     if not view.cards:
         if view.channel_count:
-            typer.echo(f"Nothing unseen from your {view.channel_count} channels in this window.")
+            typer.echo(f"Nothing unseen from your {_count(view.channel_count, 'channel')} in this window.")
         else:
             typer.echo("No channels yet. Add one with: uppyt channels add @name")
     rows = [
@@ -209,11 +271,12 @@ def seen(
     video_id: Annotated[str | None, typer.Argument(help="The video to mark, or to put back with --undo")] = None,
     undo: Annotated[bool, typer.Option("--undo", help="Put it back on the board. With no ID, the latest")] = False,
     list_seen: Annotated[bool, typer.Option("--list", help="List seen videos")] = False,
-    limit: Annotated[int, typer.Option(help="How many to list")] = 50,
+    limit: Annotated[int, typer.Option(help="How many to list", min=1)] = 50,
     as_json: JsonOption = False,
+    profile: CommandProfileOption = None,
 ) -> None:
     """Mark a video as seen, put one back, or list them."""
-    services = _session(ctx).app().seen
+    services = _session(ctx).app(profile).seen
     if undo:
         restored = services.undo(video_id)
         typer.echo(f"Put {restored} back on the board." if restored else "Nothing to undo.")
@@ -258,19 +321,24 @@ def status(ctx: typer.Context, as_json: JsonOption = False) -> None:
         typer.echo(render.to_json(state))
         return
     typer.echo(f"Last refresh: {render.when(state.last_refresh)}")
-    typer.echo(f"{state.channels} channels, {state.active_feeds} feeds working, {state.failing_feeds} failing")
+    typer.echo(
+        f"{_count(state.channels, 'channel')}, {_count(state.active_feeds, 'feed')} working, "
+        f"{state.failing_feeds} failing"
+    )
     if state.possible_gaps:
-        typer.echo(f"{state.possible_gaps} stretches where videos may be missing")
+        typer.echo(f"{_count(state.possible_gaps, 'stretch', 'stretches')} where videos may be missing")
 
 
 @implements("cli", "transfer.import")
 @app.command("import")
 @friendly
 def import_file(
-    ctx: typer.Context, file: Annotated[Path, typer.Argument(help="An OPML file", exists=True, dir_okay=False)]
+    ctx: typer.Context,
+    file: Annotated[Path, typer.Argument(help="An OPML file", exists=True, dir_okay=False)],
+    profile: CommandProfileOption = None,
 ) -> None:
     """Follow the YouTube channels in an OPML file."""
-    services = _session(ctx).app()
+    services = _session(ctx).app(profile)
     report = services.transfer.import_opml(
         file.read_bytes(), progress=lambda done, total: typer.echo(f"{done}/{total}", err=True)
     )
@@ -285,13 +353,17 @@ def import_file(
 def export_file(
     ctx: typer.Context,
     file: Annotated[Path | None, typer.Argument(help="Where to write. Defaults to the screen")] = None,
+    profile: CommandProfileOption = None,
 ) -> None:
     """Write your channels as OPML."""
-    text = _session(ctx).app().transfer.export_opml()
+    text = _session(ctx).app(profile).transfer.export_opml()
     if file is None:
         sys.stdout.write(text)
     else:
-        file.write_text(text, encoding="utf-8")
+        try:
+            file.write_text(text, encoding="utf-8")
+        except OSError as error:
+            raise UserError(f"Couldn't write {file}: {error.strerror or error}.") from error
         typer.echo(f"Wrote {file}")
 
 
@@ -308,9 +380,9 @@ def backup(ctx: typer.Context) -> None:
 @implements("cli", "channels.list")
 @channels_app.command("ls")
 @friendly
-def channels_ls(ctx: typer.Context, as_json: JsonOption = False) -> None:
+def channels_ls(ctx: typer.Context, as_json: JsonOption = False, profile: CommandProfileOption = None) -> None:
     """List the channels you follow."""
-    summaries = _session(ctx).app().channels.list()
+    summaries = _session(ctx).app(profile).channels.list()
     if as_json:
         typer.echo(render.to_json(summaries))
         return
@@ -332,18 +404,22 @@ def channels_ls(ctx: typer.Context, as_json: JsonOption = False) -> None:
 @implements("cli", "channels.get")
 @channels_app.command("show")
 @friendly
-def channels_show(ctx: typer.Context, channel: str, as_json: JsonOption = False) -> None:
+def channels_show(
+    ctx: typer.Context, channel: str, as_json: JsonOption = False, profile: CommandProfileOption = None
+) -> None:
     """Show one channel, by ID, @handle or name."""
-    detail = _session(ctx).app().channels.get(channel)
+    detail = _session(ctx).app(profile).channels.get(channel)
     typer.echo(render.to_json(detail)) if as_json else _print_detail(detail)
 
 
 @implements("cli", "channels.lookup")
 @channels_app.command("lookup")
 @friendly
-def channels_lookup(ctx: typer.Context, link: str, as_json: JsonOption = False) -> None:
+def channels_lookup(
+    ctx: typer.Context, link: str, as_json: JsonOption = False, profile: CommandProfileOption = None
+) -> None:
     """Find a channel from a link and show every feed it offers, without following it."""
-    preview = _session(ctx).app().channels.lookup(link)
+    preview = _session(ctx).app(profile).channels.lookup(link)
     if as_json:
         typer.echo(render.to_json(preview))
         return
@@ -364,11 +440,12 @@ def channels_add(
     feeds: Annotated[str | None, typer.Option(help=FEEDS_HELP)] = None,
     tags: Annotated[str | None, typer.Option(help="Comma-separated tags")] = None,
     window: Annotated[int | None, typer.Option(help="This channel's own window in days")] = None,
+    profile: CommandProfileOption = None,
 ) -> None:
     """Follow a channel."""
     detail = (
         _session(ctx)
-        .app()
+        .app(profile)
         .channels.add(
             link,
             priority=Priority.parse(priority),
@@ -392,6 +469,7 @@ def channels_set(
     tags: Annotated[str | None, typer.Option(help="Comma-separated tags. Empty clears them")] = None,
     window: Annotated[int | None, typer.Option(help="This channel's own window in days")] = None,
     follow_board: Annotated[bool, typer.Option("--follow-board-window", help="Go back to the board's window")] = False,
+    profile: CommandProfileOption = None,
 ) -> None:
     """Change a channel's priority, feeds, tags or window."""
     window_days: Any = UNSET
@@ -401,7 +479,7 @@ def channels_set(
         window_days = window
     detail = (
         _session(ctx)
-        .app()
+        .app(profile)
         .channels.set(
             channel,
             priority=_parse_priority(priority),
@@ -416,9 +494,9 @@ def channels_set(
 @implements("cli", "channels.remove")
 @channels_app.command("rm")
 @friendly
-def channels_rm(ctx: typer.Context, channel: str) -> None:
+def channels_rm(ctx: typer.Context, channel: str, profile: CommandProfileOption = None) -> None:
     """Stop following a channel. Its history is kept in case you come back."""
-    typer.echo(f"Stopped following {_session(ctx).app().channels.remove(channel).name}. Its history is kept.")
+    typer.echo(f"Stopped following {_session(ctx).app(profile).channels.remove(channel).name}. Its history is kept.")
 
 
 @implements("cli", "profiles.list")
@@ -441,9 +519,9 @@ def profiles_add(ctx: typer.Context, name: str) -> None:
 @implements("cli", "settings.get")
 @settings_app.command("show")
 @friendly
-def settings_show(ctx: typer.Context) -> None:
+def settings_show(ctx: typer.Context, profile: CommandProfileOption = None) -> None:
     """Show settings."""
-    typer.echo(render.to_json(_session(ctx).app().settings.get()))
+    typer.echo(render.to_json(_session(ctx).app(profile).settings.get()))
 
 
 @implements("cli", "settings.update")
@@ -451,9 +529,10 @@ def settings_show(ctx: typer.Context) -> None:
 @friendly
 def settings_set(
     ctx: typer.Context,
-    name: Annotated[str, typer.Argument(help="For example window_days or head_starts.high")],
+    name: Annotated[str, typer.Argument(help=f"One of {', '.join(setting_names())}")],
     value: str,
+    profile: CommandProfileOption = None,
 ) -> None:
     """Change a setting."""
-    settings = _session(ctx).app().settings.update({name: value})
+    settings = _session(ctx).app(profile).settings.update({name: value})
     typer.echo(render.to_json(settings))

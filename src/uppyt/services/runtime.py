@@ -122,5 +122,7 @@ class Runtime:
         if not names:
             raise ProfileError("There are no profiles yet. Create one with: uppyt profiles add NAME")
         if len(names) > 1:
-            raise ProfileError(f"Choose a profile with --profile. There are: {', '.join(names)}.")
+            raise ProfileError(
+                f"Choose a profile with --profile NAME, or set UPPYT_PROFILE. There are: {', '.join(names)}."
+            )
         return self.directory.get(names[0])

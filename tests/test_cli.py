@@ -131,6 +131,8 @@ def test_removing_a_channel(cli):
         (("seen", "nosuchvideo"), "doesn't know"),
         (("seen",), "Give a video ID"),
         (("settings", "set", "nonsense", "1"), "no setting"),
+        (("settings", "set", "nonsense", "1"), "head_starts.must_see"),
+        (("settings", "set", "head_starts.urgent", "1"), "window_days"),
         (("settings", "set", "window_days", "0"), "window_days"),
         (("profiles", "add", "../evil"), "Use up to 40"),
     ],
@@ -168,7 +170,7 @@ def test_board_filters(cli):
 def test_an_empty_board_says_why(cli):
     assert "No channels yet" in cli("board")
     cli("channels", "add", "@veritasium")
-    assert "Nothing unseen" in cli("board", "--window", "1")
+    assert "Nothing unseen from your 1 channel in" in cli("board", "--window", "1")
 
 
 def test_refresh_and_status(cli):
@@ -176,7 +178,7 @@ def test_refresh_and_status(cli):
     assert "Everything was checked recently" in cli("refresh")
     cli.clock.advance(hours=2)
     assert "Checked 1 feed" in cli("refresh")
-    assert "1 channels, 1 feeds working" in cli("status")
+    assert "1 channel, 1 feed working" in cli("status")
     assert json.loads(cli("status", "--json"))["active_feeds"] == 1
 
 
@@ -207,7 +209,7 @@ def test_a_missing_import_file_is_refused(cli):
 def test_choosing_between_profiles(cli):
     cli("profiles", "add", "nat")
     assert "dusty" in cli("profiles", "ls")
-    assert "Choose a profile" in cli("board", code=1)
+    assert "Choose a profile with --profile NAME, or set UPPYT_PROFILE" in cli("board", code=1)
     assert "No channels" in cli("--profile", "nat", "board")
     assert "no profile called" in cli("--profile", "ghost", "board", code=1)
 
@@ -228,3 +230,135 @@ def test_a_title_prints_exactly_as_written(cli):
     )
     cli("channels", "add", "@veritasium")
     assert "[bold]Not bold[/bold] & ok" in cli("board")
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("board", "--profile", "nat"),
+        ("board", "-p", "nat", "--json"),
+        ("channels", "ls", "--profile", "nat"),
+        ("settings", "show", "--profile", "nat"),
+        ("seen", "--list", "--profile", "nat"),
+        ("export", "--profile", "nat"),
+        ("--profile", "ghost", "board", "--profile", "nat"),  # the closer one wins
+    ],
+)
+def test_profile_can_also_come_after_the_command(cli, args):
+    cli("profiles", "add", "nat")
+    cli("--profile", "nat", "channels", "add", "@veritasium")
+    output = cli(*args)
+    assert "Choose a profile" not in output
+    if args[0] == "board":
+        assert "Veritasium" in output
+
+
+def test_profile_after_the_command_is_the_one_used(cli):
+    cli("profiles", "add", "nat")
+    cli("channels", "add", "@veritasium", "--profile", "nat")
+    assert SECOND in cli.store("nat").subscriptions()
+    assert not cli.store("dusty").subscriptions()
+
+
+@pytest.mark.parametrize("where", ["missing/folder/list.opml", "."])
+def test_exporting_to_a_bad_path_is_a_sentence(cli, tmp_path, where):
+    output = cli("export", str(tmp_path / where), code=1)
+    assert "Couldn't write" in output
+    assert "Traceback" not in output
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("board", "--limit", "0"),
+        ("board", "--limit", "-1"),
+        ("board", "--offset", "-1"),
+        ("board", "--window", "0"),
+        ("board", "--window", "-3"),
+        ("board", "--window", "4000"),
+        ("seen", "--list", "--limit", "0"),
+    ],
+)
+def test_nonsense_numbers_are_refused(cli, args):
+    cli("channels", "add", "@veritasium")
+    result = cli.runner.invoke(app, list(args), obj=Session(cli.runtime, owned=False))
+    assert result.exit_code != 0, result.output
+    assert "Nothing" not in result.output
+
+
+def test_one_gap_is_one_stretch(cli, monkeypatch):
+    from uppyt.services.refresh import RefreshService
+
+    real = RefreshService.status
+
+    def one_gap(self):
+        from dataclasses import replace
+
+        return replace(real(self), possible_gaps=1)
+
+    monkeypatch.setattr(RefreshService, "status", one_gap)
+    assert "1 stretch where videos may be missing" in cli("status")
+
+
+@pytest.mark.parametrize(
+    ("host", "url"),
+    [
+        ("127.0.0.1", "http://localhost:8770"),
+        ("0.0.0.0", "http://localhost:8770"),
+        ("::", "http://localhost:8770"),
+        ("::1", "http://[::1]:8770"),
+        ("fe80::1", "http://[fe80::1]:8770"),
+        ("192.168.1.5", "http://192.168.1.5:8770"),
+        ("myhost.lan", "http://myhost.lan:8770"),
+    ],
+)
+def test_the_printed_address_is_a_real_url(host, url):
+    from uppyt.cli.main import _url
+
+    assert _url(host, 8770) == url
+
+
+def test_a_port_in_use_is_a_sentence_and_opens_no_browser(cli, monkeypatch):
+    import socket
+    import threading
+
+    import uvicorn
+
+    opened, started = [], []
+    monkeypatch.setattr("uppyt.cli.main.webbrowser.open", lambda url: opened.append(url))
+    monkeypatch.setattr(threading, "Timer", lambda *args, **kwargs: opened.append(args) or threading.Thread())
+
+    def fake_run(*args, **kwargs):
+        started.append(kwargs)
+        raise SystemExit(3)
+
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+    monkeypatch.setattr(uvicorn.Server, "run", fake_run)
+    with socket.socket() as taken:
+        taken.bind(("127.0.0.1", 0))
+        taken.listen()
+        port = taken.getsockname()[1]
+        result = cli.runner.invoke(app, ["--port", str(port)], obj=Session(cli.runtime, owned=False))
+    assert result.exit_code == 1, result.output
+    assert f"Port {port} is already in use" in result.output
+    assert "is running at" not in result.output
+    assert not started
+    assert not opened
+
+
+def test_a_free_port_is_served_on_the_socket_already_bound(cli, monkeypatch):
+    import uvicorn
+
+    served = []
+
+    def run(self, sockets=None):
+        served.extend(sockets or [])
+        self.started = True
+
+    monkeypatch.setattr(uvicorn.Server, "run", run)
+    result = cli.runner.invoke(app, ["--port", "0", "--no-browser"], obj=Session(cli.runtime, owned=False))
+    assert result.exit_code == 0, result.output
+    assert "uppYT is running at http://localhost:" in result.output
+    (listening,) = served
+    assert listening.getsockname()[0] == "127.0.0.1"
+    listening.close()
