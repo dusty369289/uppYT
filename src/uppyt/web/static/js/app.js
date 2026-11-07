@@ -54,7 +54,11 @@
     const elt = event.detail.elt;
     if (refocus && refocus.to === "check" && elt.matches(".tools")) return;  // the board a check asks for
     refocus = null;
-    if (current >= 0 || !elt.contains(document.activeElement)) return;
+    if (current >= 0) return;
+    // The u key clicks Undo while focus is still on a card, and that card goes when the board is swapped.
+    const results = document.getElementById("results");
+    const undoByKey = elt.closest(".toast") && results && results.contains(document.activeElement);
+    if (!elt.contains(document.activeElement) && !undoByKey) return;
     if (elt.matches(".card__seen")) refocus = { to: "seen", index: cards().indexOf(elt.closest(".card")) };
     else if (elt.closest(".toast")) refocus = { to: "undone", video: elt.getAttribute("hx-post").split("/")[2] };
     else if (elt.id === "more-link") refocus = { to: "more", index: cards().length };
@@ -76,6 +80,8 @@
   document.body.addEventListener("htmx:afterRequest", (event) => {
     // The request's own element, since a card's form has already gone by the time this runs.
     const form = event.detail.requestConfig && event.detail.requestConfig.elt;
+    // A check that failed, or the board it asked for, swaps nothing. Kept, its plan would pull focus on a later change.
+    if (!event.detail.successful && refocus && refocus.to === "check") refocus = null;
     if (!event.detail.successful || !form) return;
     const plan = refocus && refocus.to !== "check" ? refocus : null;
     if (plan) refocus = null;

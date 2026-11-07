@@ -267,6 +267,42 @@ def test_keyboard_focus_survives_seen_and_undo(board):
     expect(page.locator(f'[data-video="{first}"] .card__picture')).to_be_focused()
 
 
+def test_keyboard_focus_survives_the_undo_shortcut(board):
+    """u clicked the toast's button while focus sat on a card, so nothing planned to bring focus back."""
+    page, _, _ = board
+    third = cards(page).nth(2).get_attribute("data-video")
+    cards(page).nth(2).locator(".card__seen button").focus()
+    page.keyboard.press("Enter")
+    expect(page.locator(f'[data-video="{third}"]')).to_have_count(0)
+    expect(page.locator(".toast")).to_be_visible()
+    page.keyboard.press("u")
+    expect(page.locator(f'[data-video="{third}"] .card__picture')).to_be_focused()
+
+
+def test_a_failed_check_doesnt_pull_focus_later(board):
+    """After a check failed, the next filter change moved focus off the dropdown onto Check now."""
+    page, _, watcher = board
+    for failure in ("abort", "500"):
+        if failure == "abort":
+            page.route("**/refresh", lambda route: route.abort())
+        else:
+            page.route("**/refresh", lambda route: route.fulfill(status=500, body="broken"))
+        page.get_by_role("button", name="Check now").focus()
+        page.keyboard.press("Enter")
+        expect(page.get_by_role("button", name="Check now")).to_be_enabled()
+        page.unroute("**/refresh")
+        expected = [p for p in watcher.problems if "refresh" in p or "htmx:" in p or "Failed to load" in p]
+        assert expected, "the check was meant to fail"
+        assert expected == watcher.problems, watcher.problems
+        watcher.problems.clear()  # the failure this test makes on purpose
+        window = page.get_by_label("How far back")
+        window.focus()
+        page.keyboard.press("ArrowDown")
+        expect(page).to_have_url(re.compile(r"window="))
+        page.wait_for_load_state("networkidle")
+        expect(window).to_be_focused()
+
+
 def test_keyboard_focus_lands_on_the_first_new_card_after_show_more(browser, fresh_scene):
     scene = fresh_scene("populated")
     scene.services().settings.update({"page_size": 6})
