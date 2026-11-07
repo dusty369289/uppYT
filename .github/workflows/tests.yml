@@ -26,3 +26,5 @@ jobs:
         with:
           name: contact-sheet
           path: .ui-report
+          include-hidden-files: true # the folder starts with a dot, which is otherwise skipped without failing
+          if-no-files-found: error
