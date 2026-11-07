@@ -46,8 +46,11 @@ def test_the_migrated_schema_matches_the_tables(tmp_path):
     for table in SQLModel.metadata.sorted_tables:
         real = {row[1]: (row[3], bool(row[5])) for row in connection.execute(f"PRAGMA table_info({table.name})")}
         expected = {c.name: (not c.nullable, c.primary_key) for c in table.columns}
-        assert {k: v[1] for k, v in real.items()} == {k: v[1] for k, v in expected.items()}, table.name
-        assert set(real) == set(expected), table.name
+        assert real == expected, table.name  # names, NOT NULL and primary keys together
+        indexes = {row[1] for row in connection.execute(f"PRAGMA index_list({table.name})")}
+        assert {name for name in indexes if not name.startswith("sqlite_autoindex")} == {
+            index.name for index in table.indexes
+        }, table.name
     connection.close()
 
 
