@@ -499,10 +499,16 @@ def test_now_is_timezone_aware():
         ("HTTPS://YOUTU.BE/x", "link to a video, not a channel"),
         ("https://www.youtube.com/playlist?list=PLabc", "link to a playlist, not a channel"),
         ("mkbhd", "put @ in front: @mkbhd"),
-        ("evil.example", "isn't a YouTube link"),
-        ("https://youtu.be.evil.example/x", "isn't a YouTube link"),
+        ("evil.example", "isn't a YouTube link. Paste a channel link"),
+        ("https://youtu.be.evil.example/x", "isn't a YouTube link. Paste a channel link"),
     ],
 )
 def test_near_misses_get_the_right_advice(text, hint):
     with pytest.raises(ChannelInputError, match=hint):
         channel_page_url(text)
+
+
+def test_a_host_name_never_gets_the_handle_hint():
+    with pytest.raises(ChannelInputError) as caught:
+        channel_page_url("evil.example")
+    assert "put @ in front" not in str(caught.value)
