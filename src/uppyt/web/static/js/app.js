@@ -58,7 +58,7 @@
     if (elt.matches(".card__seen")) refocus = { to: "seen", index: cards().indexOf(elt.closest(".card")) };
     else if (elt.closest(".toast")) refocus = { to: "undone", video: elt.getAttribute("hx-post").split("/")[2] };
     else if (elt.id === "more-link") refocus = { to: "more", index: cards().length };
-    else if (elt === checkButton().form) refocus = { to: "check" };
+    else if (checkButton() && elt === checkButton().form) refocus = { to: "check" };  // not on Settings
   });
 
   document.body.addEventListener("htmx:afterSwap", (event) => {

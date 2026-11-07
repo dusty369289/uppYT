@@ -391,10 +391,14 @@ def test_checking_from_settings_says_what_it_found(browser, fresh_scene):
     scene = fresh_scene("populated")
     context = open_context(browser)
     page = context.new_page()
+    watcher = Watcher(page)
     page.goto(scene.url + "/settings")
-    page.get_by_role("button", name="Check for new videos").click()
+    button = page.get_by_role("button", name="Check for new videos")
+    button.focus()  # the focus code once threw here, on a page with no board
+    button.press("Enter")
     expect(page.locator(".toast")).to_contain_text(re.compile("Checked|checked"))
     expect(page).to_have_url(scene.url + "/settings")
+    assert not watcher.problems, watcher.problems
     context.close()
 
 

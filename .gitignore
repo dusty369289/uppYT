@@ -18,3 +18,4 @@ dist/
 /.ui-report-previous/
 CLAUDE.local.md
 /.thumbnail-objects/
+.claude/worktrees/

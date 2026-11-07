@@ -250,6 +250,14 @@ def test_a_feed_listing_a_video_twice_can_still_be_saved(catalogue):
     assert len(catalogue.videos([MKBHD])) == 3
 
 
+def test_a_repeat_still_counts_towards_a_full_feed(catalogue):
+    """14 videos and one repeat fill all 15 places, so older videos may exist that the feed couldn't show."""
+    feed = entries(MKBHD, FEED_CAP - 1)
+    full = replace(feed, entries=(*feed.entries, feed.entries[0]))
+    catalogue.record_success(MKBHD, FeedKind.VIDEOS, full, NOW, LATER)
+    assert not catalogue.feed_states([MKBHD])[(MKBHD, FeedKind.VIDEOS)].history_complete
+
+
 def test_the_first_poll_records_where_history_starts(catalogue):
     feed = parse_feed(recorded_feed("mkbhd-videos"))
     result = catalogue.record_success(MKBHD, FeedKind.VIDEOS, feed, NOW, LATER)

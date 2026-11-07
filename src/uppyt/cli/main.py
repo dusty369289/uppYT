@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import errno
 import functools
+import ipaddress
 import logging
 import os
 import sys
@@ -175,6 +176,13 @@ class _Keep(logging.Handler):
         self.records.append(record)
 
 
+def _is_ipv4(host: str) -> bool:
+    try:
+        return isinstance(ipaddress.ip_address(host), ipaddress.IPv4Address)
+    except ValueError:
+        return False
+
+
 def _bind(config, host: str, port: int, url: str):
     """uvicorn's own bind, made before anything is printed, so a taken port is a sentence and opens no browser.
 
@@ -210,7 +218,9 @@ def _run_web_app(session: Session, host: str, port: int, open_browser: bool) -> 
     config = uvicorn.Config(
         create_app(session.runtime, allowed_hosts=_allowed_hosts(host)), host=host, port=port, log_level="warning"
     )
-    listening = _bind(config, host, port, url)
+    # A plain IPv4 address is bound here first, so a taken port is a sentence. A name like localhost or any IPv6
+    # address is left to uvicorn, which binds every address it resolves to, each IPv6 one as IPv6 only.
+    listening = _bind(config, host, port, url) if _is_ipv4(host) else None
     typer.echo(f"uppYT is running at {url}")
     if host not in ("127.0.0.1", "localhost", "::1"):
         typer.echo("Warning: anyone who can reach this address can see and change every profile.", err=True)
@@ -218,7 +228,7 @@ def _run_web_app(session: Session, host: str, port: int, open_browser: bool) -> 
         threading.Timer(0.8, webbrowser.open, args=(url,)).start()
     server = uvicorn.Server(config)
     with contextlib.suppress(KeyboardInterrupt):  # as uvicorn.run does: Ctrl+C is a clean stop
-        server.run(sockets=[listening])
+        server.run(sockets=[listening] if listening else None)
     if not server.started:  # and a failed startup exits 3
         raise typer.Exit(3)
 

@@ -90,15 +90,13 @@ def test_found_missing_and_failed_are_told_apart():
     assert isinstance(feeds.fetch(MKBHD, FeedKind.LIVE), Failed)
 
 
-def test_a_video_listed_twice_is_kept_once():
-    """Feed text is untrusted. A repeated entry once made the whole feed impossible to save."""
+def test_a_feed_is_read_as_listed_even_with_a_video_twice():
+    """Parsing reports what YouTube listed. Keeping each video once is the store's job, and a repeat fills a place."""
     xml = recorded_feed("mkbhd-videos").decode()
     first = xml[xml.index("<entry>") : xml.index("</entry>") + len("</entry>")]
     feed = parse_feed(xml.replace(first, first + first, 1))
-    ids = [entry.video_id for entry in feed.entries]
-    assert len(ids) == 15
-    assert ids == list(dict.fromkeys(ids))
-    assert feed.entries == parse_feed(recorded_feed("mkbhd-videos")).entries
+    assert len(feed.entries) == 16
+    assert feed.entries[0] == feed.entries[1]
 
 
 def test_html_where_a_feed_should_be_is_a_failure_not_a_crash():

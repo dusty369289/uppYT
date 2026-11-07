@@ -78,11 +78,7 @@ def parse_feed(xml: str | bytes) -> ParsedFeed:
         raise FeedParseError(f"not a readable feed: {error}") from error
     if not root.tag.endswith("feed"):
         raise FeedParseError("not a feed")
-    unique: dict[str, FeedEntry] = {}
-    for entry in (_entry(node) for node in root.findall("atom:entry", NS)):
-        if entry:
-            unique.setdefault(entry.video_id, entry)  # feed text is untrusted: a video listed twice is kept once
-    entries = tuple(unique.values())
+    entries = tuple(e for e in (_entry(node) for node in root.findall("atom:entry", NS)) if e)
     channel_id = _channel_from_uri(root.findtext("atom:author/atom:uri", namespaces=NS))
     if channel_id is None and entries:
         channel_id = entries[0].channel_id

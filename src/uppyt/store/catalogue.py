@@ -279,6 +279,7 @@ class Catalogue:
         self, channel_id: str, kind: FeedKind, feed: ParsedFeed, now: datetime, next_check: datetime
     ) -> PollResult:
         """Keep a feed's entries, and work out whether anything may have been missed since last time."""
+        full = len(feed.entries) >= FEED_CAP  # as listed: a repeat still filled a place
         feed = replace(feed, entries=_once_each(feed.entries))
         with Session(self._writer) as session:
             row = self._feed_row(session, channel_id, kind)
@@ -292,12 +293,12 @@ class Catalogue:
                 ).all()
             )
             new_entries = [e for e in feed.entries if e.video_id not in known]
-            possible_gap = not first_success and len(feed.entries) >= FEED_CAP and not known
+            possible_gap = not first_success and full and not known
             if possible_gap:
                 self._note_gap(session, channel_id, kind, feed.entries, now)
             self._keep_entries(session, kind, feed.entries, known, now)
             if first_success:
-                row.history_complete = len(feed.entries) < FEED_CAP
+                row.history_complete = not full
                 row.history_from = min((e.published_at for e in feed.entries), default=None)
             row.status = FeedStatus.ACTIVE.value
             row.failures = 0
