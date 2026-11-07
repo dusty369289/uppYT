@@ -200,6 +200,14 @@ def test_a_referer_from_elsewhere_isnt_followed(followed):
     assert response.headers["location"] == "/"
 
 
+def test_a_protocol_relative_referer_isnt_followed(followed):
+    """A same-host Referer whose path starts with // would send the browser to another host."""
+    response = followed.post("/seen/veri0000xxx", headers={"referer": "http://testserver//evil.example/x"})
+    assert response.headers["location"] == "/"
+    response = followed.post("/seen/veri0000xxx/undo", headers={"referer": "http://testserver/seen?offset=24"})
+    assert response.headers["location"] == "/seen?offset=24"
+
+
 def test_marking_seen_with_htmx_answers_with_an_undo(followed):
     response = followed.post("/seen/veri0000xxx", headers=HTMX)
     assert response.status_code == 200

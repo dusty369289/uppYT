@@ -84,7 +84,8 @@ def _safe_back(request: Request, fallback: str = "/") -> str:
     """Back to the page a form came from, on this site only."""
     referer = request.headers.get("referer", "")
     parts = urlsplit(referer)
-    if parts.netloc == request.headers.get("host") and parts.path.startswith("/"):
+    on_this_site = parts.path.startswith("/") and not parts.path.startswith("//")  # //host is another site
+    if parts.netloc == request.headers.get("host") and on_this_site:
         return parts.path + (f"?{parts.query}" if parts.query else "")
     return fallback
 
