@@ -47,11 +47,11 @@
   </div>
   <div class="section">
     <h2>History</h2>
-    <p class="prose">Last checked {{ ago(status.last_refresh) }}. {{ status.channels }} channel{{ "s" if status.channels != 1 }} across every profile, {{ status.active_feeds }} feed{{ "s" if status.active_feeds != 1 }} working{% if status.failing_feeds %}, {{ status.failing_feeds }} failing{% endif %}{% if status.possible_gaps %}, {{ status.possible_gaps }} possible gap{{ "s" if status.possible_gaps != 1 }}{% endif %}.</p>
+    {% include "_refresh_status.html" %}
     <p class="prose">History can't be downloaded again, because YouTube's feeds list only the newest 15 videos. A backup copies history and every profile to a dated folder.</p>
     <div class="cluster">
       <form method="post" action="/backup"><button class="button" type="submit">Back up now</button></form>
-      <form method="post" action="/refresh" hx-post="/refresh" hx-swap="none"><button class="link-button" type="submit">Check for new videos</button></form>
+      <form method="post" action="/refresh" hx-post="/refresh" hx-swap="none" hx-disabled-elt="find button"><button class="link-button" type="submit">Check for new videos</button></form>
     </div>
   </div>
 </div>

@@ -454,6 +454,32 @@ def test_checking_from_settings_says_what_it_found(followed):
     assert "<h1>Settings</h1>" in response.text
 
 
+def test_checking_from_settings_updates_its_last_checked_line(followed):
+    """With JavaScript, only the toast changed, so History still said 'Last checked 3 hours ago' after a check."""
+    page = followed.get("/settings").text
+    button = re.search(r'<form[^>]*action="/refresh"[^>]*>', page).group()
+    assert 'hx-disabled-elt="find button"' in button, "a double click sent two checks"
+    assert 'id="refresh-status"' in page
+    followed.clock.advance(hours=3)
+    followed.runtime.feeds._cache.clear()
+    assert "Last checked 3 hours ago" in followed.get("/settings").text
+    response = followed.post("/refresh", headers={**HTMX, "HX-Current-URL": "http://testserver/settings"})
+    status = re.search(r'<p[^>]*id="refresh-status"[^>]*>.*?</p>', response.text, re.S)
+    assert status, response.text
+    assert 'hx-swap-oob="true"' in status.group()
+    assert "Last checked just now" in status.group()
+    assert "1 feed working" in status.group()
+
+
+def test_checking_from_the_board_sends_no_settings_status(followed):
+    """The board has no such line, and htmx complains about an out-of-band swap with nowhere to go."""
+    followed.clock.advance(hours=3)
+    followed.runtime.feeds._cache.clear()
+    response = followed.post("/refresh", headers={**HTMX, "HX-Current-URL": "http://testserver/?window=7"})
+    assert "Checked" in response.text
+    assert "refresh-status" not in response.text
+
+
 def test_settings_show_refresh_status(followed):
     page = followed.get("/settings").text
     assert "1 channel across every profile" in page

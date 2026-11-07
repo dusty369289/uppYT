@@ -392,12 +392,16 @@ def test_checking_from_settings_says_what_it_found(browser, fresh_scene):
     context = open_context(browser)
     page = context.new_page()
     watcher = Watcher(page)
+    scene.clock.advance(hours=3)
+    scene.runtime.feeds._cache.clear()
     page.goto(scene.url + "/settings")
+    expect(page.locator("#refresh-status")).to_contain_text("Last checked 3 hours ago")
     button = page.get_by_role("button", name="Check for new videos")
     button.focus()  # the focus code once threw here, on a page with no board
     button.press("Enter")
     expect(page.locator(".toast")).to_contain_text(re.compile("Checked|checked"))
     expect(page).to_have_url(scene.url + "/settings")
+    expect(page.locator("#refresh-status")).to_contain_text("Last checked just now")  # stayed stale until a reload
     assert not watcher.problems, watcher.problems
     context.close()
 

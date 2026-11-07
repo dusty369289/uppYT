@@ -489,7 +489,11 @@ def create_app(
         app_services = services(request)
         report = app_services.refresh.run(force=True)
         if _is_htmx(request):
-            response = HTMLResponse(templates.get_template("_toast.html").render(message=report.summary))
+            body = templates.get_template("_toast.html").render(message=report.summary)
+            if urlsplit(request.headers.get("hx-current-url", "")).path == "/settings":  # its History line too
+                status = app_services.refresh.status()
+                body += templates.get_template("_refresh_status.html").render(status=status, oob=True)
+            response = HTMLResponse(body)
             response.headers["HX-Reswap"] = "none"
             response.headers["HX-Trigger"] = "uppyt-refreshed"
             return response
