@@ -182,3 +182,10 @@ Nine reviewers covered correctness, web UX, CSS, the terminal app, the CLI, secu
 - **CLI:** `--profile` works before or after the subcommand. Out-of-range numbers are refused. Errors print one sentence, not a traceback. A taken port is checked before anything prints, and uvicorn still binds as before. `status` uses singulars.
 - **Docs:** the cron example uses the full path, `data/backups/` is listed, and `.dockerignore` leaves out test output.
 - **Not done:** a members-only board test waits for a real recording, since fixtures must be real. The 'Everything' window stays in SQLModel: the default board takes about 60 ms. The 30 s limits on the entrypoint and performance tests are kept: they start real programs or build catalogues of thousands, and that work isn't a hang.
+
+## 2026-11-07: owner decisions after the review
+
+- **The Host check stays on when listening everywhere.** `--host 0.0.0.0` used to turn it off, which left DNS rebinding open. Now any IP address (IPv4, or bracketed IPv6) and `localhost` are answered, since rebinding needs a domain name; other names, such as a LAN hostname, need `UPPYT_ALLOWED_HOSTS`.
+- **`uppyt refresh` suits cron.** `--quiet` prints only for new videos, possible gaps, failures or YouTube being down; `--json` prints the report; it exits 2 when YouTube's feeds are down or every feed checked failed. A skipped busy run isn't a failure.
+- **The README says how to use uppYT on a phone**: `--host 0.0.0.0` and this computer's LAN IP, with a plain warning that anyone on the network can then see and change every profile.
+- **`uppyt seen --undo ID` for a video that isn't seen** says "ID isn't marked as seen." and exits 1, like `uppyt seen UNKNOWN`. "Nothing to undo." stays for `--undo` with nothing seen.

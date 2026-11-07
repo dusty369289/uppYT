@@ -67,6 +67,8 @@ It opens in your browser, asks for your name, then asks for a channel. Paste a l
   </tr>
 </table>
 
+**On your phone:** start it with `uv run uppyt --host 0.0.0.0`, then open `http://<this computer's LAN IP>:8770` on the phone, such as `http://192.168.1.20:8770`. An IP address works as it is. A name like `mybox.lan` needs adding to `UPPYT_ALLOWED_HOSTS` first, so that a web page can't reach uppYT through a domain name it controls. There are no logins, so anyone on your network can then see and change every profile.
+
 | Feature | What it does |
 |---|---|
 | **Your priorities** | Must-see, High, Normal or Low for each channel, with head starts you can change |
@@ -126,7 +128,7 @@ uppyt channels ls
 uppyt board --limit 10 --json
 uppyt seen VIDEO_ID
 uppyt seen --undo
-uppyt refresh
+uppyt refresh --quiet            # for cron: prints only news or trouble, exits 2 if feeds are down
 uppyt import channels.opml
 uppyt export channels.opml
 uppyt backup
@@ -144,7 +146,7 @@ uppYT only reads YouTube's public RSS feeds, plus one page when you add a channe
 > **New channels start thin.** Each feed lists only the newest 15 videos, so older ones can't be fetched. The board fills in over time, and each channel's page says where its history starts.
 
 > [!TIP]
-> **Keep it running, or schedule it.** uppYT checks hourly while it's open. If a channel uploads more than 15 videos between checks, some can be missed, and its page says when that may have happened. To keep checking while it's closed, schedule a refresh with cron or a timer. Cron starts outside the clone with a short `PATH`, so use the full path to the clone's own command, for example `0 * * * * /path/to/uppYT/.venv/bin/uppyt refresh`. One refresh covers every profile.
+> **Keep it running, or schedule it.** uppYT checks hourly while it's open. If a channel uploads more than 15 videos between checks, some can be missed, and its page says when that may have happened. To keep checking while it's closed, schedule a refresh with cron or a timer. Cron starts outside the clone with a short `PATH`, so use the full path to the clone's own command, for example `0 * * * * /path/to/uppYT/.venv/bin/uppyt refresh --quiet`. With `--quiet` it stays silent unless there's something new or something wrong, and it exits 2 while YouTube's feeds are down. One refresh covers every profile.
 
 > [!NOTE]
 > **No search and no durations.** Feeds don't provide them, so channels are added by link, and cards don't show a length.
