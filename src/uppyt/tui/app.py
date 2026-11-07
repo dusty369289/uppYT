@@ -862,7 +862,8 @@ class UppytApp(App):
             return
         state = self.services.refresh.status()
         last = f"{state.last_refresh:%-d %b %H:%M}" if state.last_refresh else "never"
-        text = f"Last refresh {last}. {state.active_feeds} feeds working, {state.failing_feeds} failing."
+        feeds = f"{state.active_feeds} feed{'s' if state.active_feeds != 1 else ''}"
+        text = f"Last refresh {last}. {feeds} working, {state.failing_feeds} failing."
         if state.possible_gaps:
-            text += f" {state.possible_gaps} possible gaps."
+            text += f" {state.possible_gaps} possible gap{'s' if state.possible_gaps != 1 else ''}."
         self.notify(text, markup=False, timeout=6)

@@ -470,7 +470,7 @@ async def test_status_and_help_open(scene):
         await pilot.pause()
         await pilot.press("t")
         await pilot.pause()
-        assert any("feeds working" in str(n.message) for n in app._notifications)
+        assert any("1 feed working" in str(n.message) for n in app._notifications)
         await pilot.press("question_mark")
         await pilot.pause()
         assert isinstance(app.screen, HelpScreen)
