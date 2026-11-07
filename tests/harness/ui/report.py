@@ -99,6 +99,10 @@ def finish(terminal, reason: str = "") -> None:
     verdicts = Counter(r["pixels"] for r in results)
     terminal.section("ui checks")
     terminal.write_line(f"{len(results)} screens. Contact sheet: {sheet}. Read it: rules can't judge how a page looks.")
+    if verdicts["not compared"]:
+        terminal.write_line(
+            f"Pixel comparison is off, so {verdicts['not compared']} screens had their rules checked only."
+        )
     if verdicts["created"]:
         terminal.write_line(
             f"{verdicts['created']} baselines created. Those screens have nothing to compare against yet, so run again "

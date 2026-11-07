@@ -17,6 +17,11 @@ def pytest_addoption(parser):
     parser.getgroup("ui checks").addoption(
         "--ui-accept", action="store_true", help="approve the current look as this machine's new pixel baselines"
     )
+    parser.getgroup("ui checks").addoption(
+        "--ui-no-baselines",
+        action="store_true",
+        help="skip pixel comparison, for throwaway machines like CI where a baseline could never be compared",
+    )
 
 
 def pytest_sessionstart(session):

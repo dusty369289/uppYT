@@ -84,3 +84,15 @@ Neither was re-run away or loosened, and both limits stayed where they were.
   writing in the same instant, can still race. Accepted for now: the window is very small and the file can't be corrupted.
 - **The recurring pixel flake was native `<select>` text** keeping a layout from before its font arrived, on about 1 load in
   4 under CPU load. The harness now lays selects out again: 100 identical loads in 100. Disabling LCD text didn't help.
+
+## 2026-11-06: the first real CI run
+
+- **CI's first failure was a real bug.** A filter change made while the previous one was loading was dropped, so the
+  controls and the board disagreed. It reproduced 1 time in 30 under CPU load. Only the results are swapped now, the form
+  stays in place, and a new change queues behind a request in flight, keeping only the latest. Replacing the request also worked, but
+  htmx logs each deliberate abort as a console error.
+- **README diagrams are pictures, not Mermaid.** The owner saw raw Mermaid text. Mermaid depends on GitHub's script and
+  frame, which not every viewer runs. Their source is in `scripts/make_readme_assets.py`.
+- **CI doesn't make pixel baselines.** The owner pointed out they were created on an empty folder every run and never
+  compared, and all 290 screens reported as skipped despite passing their rules. Caching them between runs was rejected:
+  runner images change rendering, and CI has nobody to approve an intended change. Pixel comparison stays a local check.

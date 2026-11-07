@@ -22,6 +22,7 @@ CHANGED_SHARE = 0.002  # more than this share of pixels changing counts as a rea
 
 
 class Verdict(StrEnum):
+    NOT_COMPARED = "not compared"
     CREATED = "created"
     SAME = "same"
     DIFFERENT = "different"

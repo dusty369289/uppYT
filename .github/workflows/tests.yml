@@ -19,8 +19,8 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv sync
       - run: uv run playwright install --with-deps chromium
-      # Pixel baselines are local to each machine, so here they're only created. Every other check runs in full.
-      - run: uv run pytest -m ui
+      # Pixel baselines belong to one machine, and this one is thrown away, so there's never anything to compare.
+      - run: uv run pytest -m ui --ui-no-baselines
       - uses: actions/upload-artifact@v4
         if: always()
         with:

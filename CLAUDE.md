@@ -82,6 +82,7 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
   or is accepted: `pytest --timing-accept <test> --reason "..."`. Explain it, don't just accept it.
   `pytest --timing-report` shows the queue. Warnings never fail a run.
 - Run output: `pytest ... > file 2>&1`, then read the file.
+- **CI skips pixel comparison** (`--ui-no-baselines`), since its machines are thrown away. Everything else runs there.
 - **UI baselines** are local-only (`.ui-baselines/`), keyed to OS, browser and fonts. Look at the contact sheet, then approve with `--ui-accept --reason "..."`. The previous report stays in `.ui-report-previous/`, and replaced baselines under `replaced/`.
 - After changing how a page looks, read the contact sheet. Rules can't judge how it looks.
 - Before each commit: the full suite once. Check what you changed against the running app, not only tests.
@@ -100,4 +101,6 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
   under CPU load to find, since an idle machine never showed it. Reproduce flakes under load.
 - **One `ProfileStore` per profile, always.** Its lock is what protects read-modify-write saves. One store per request
   lost 187 of 200 parallel marks. Two separate processes (web and CLI) can still race, in a very narrow window.
+- **Keep the board's filter form in place.** Swap only `#results`, with `hx-sync="this:queue last"`. Replacing the form and
+  htmx's default of dropping requests lost changes made while one was loading. Only CI's slower machine showed it.
 - Textual's own names bite: `remove`, `_id` and `_loop` on a screen or app all break it silently or strangely.

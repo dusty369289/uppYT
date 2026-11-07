@@ -144,10 +144,16 @@ def test_page(page_info, scenario, width, mode, browser, scenes, request):
     report.SHOTS.mkdir(parents=True, exist_ok=True)
     shot = report.SHOTS / f"{name}.png"
     page.screenshot(path=shot, full_page=True, animations="disabled", caret="hide")
-    machine = pixels.fingerprint(browser.version)
-    comparison = pixels.compare(
-        shot, name, machine, accept=request.config.getoption("--ui-accept"), diff_to=report.DIFFS / f"{name}.png"
-    )
+    if request.config.getoption("--ui-no-baselines"):
+        comparison = pixels.Comparison(pixels.Verdict.NOT_COMPARED, shot)
+    else:
+        comparison = pixels.compare(
+            shot,
+            name,
+            pixels.fingerprint(browser.version),
+            accept=request.config.getoption("--ui-accept"),
+            diff_to=report.DIFFS / f"{name}.png",
+        )
     context.close()
 
     different = comparison.verdict is pixels.Verdict.DIFFERENT
