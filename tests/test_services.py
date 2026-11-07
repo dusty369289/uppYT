@@ -585,6 +585,16 @@ def test_a_bad_hand_edit_in_one_profile_doesnt_stop_the_others_refreshing(scene)
         nat.channels.list()
 
 
+def test_a_profile_file_that_isnt_utf8_doesnt_stop_the_others_refreshing(scene):
+    scene.app.channels.add("@veritasium")
+    nat = scene.other()
+    (nat.store.folder / "channels.toml").write_bytes(b"# caf\xe9\n")
+    scene.clock.advance(hours=2)
+    assert scene.app.refresh.run().checked == 1
+    with pytest.raises(ProfileError, match="UTF-8"):
+        nat.channels.list()
+
+
 def test_refresh_status(scene):
     scene.app.channels.add("@mkbhd")
     status = scene.app.refresh.status()

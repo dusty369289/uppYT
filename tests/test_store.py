@@ -622,6 +622,34 @@ def test_an_inline_table_entry_is_fine(profile):
     assert subscription.tags == ("tech",)
 
 
+def test_adding_a_channel_to_an_inline_channels_table_keeps_it_inline(profile):
+    """`channels = { ... }` reads fine, so adding to it mustn't raise a raw ValueError about inline tables."""
+    other = "UCHnyfMqiRRG1u-2MsSQLbXA"
+    path = profile.folder / "channels.toml"
+    path.write_text(f'# mine\nchannels = {{ {MKBHD} = {{ priority = "high" }} }}\n')
+    profile.save_subscription(Subscription(other, Priority.LOW), note="Veritasium")
+    text = path.read_text()
+    assert text.startswith("# mine\n")
+    assert f'{MKBHD} = {{ priority = "high" }}' in text
+    reread = ProfileStore(profile.folder).subscriptions()
+    assert reread[MKBHD].priority is Priority.HIGH
+    assert reread[other].priority is Priority.LOW
+
+
+@pytest.mark.parametrize("name", ["channels.toml", "settings.toml"])
+def test_a_file_that_isnt_utf8_is_reported_and_not_overwritten(profile, name):
+    """A UnicodeDecodeError isn't a UserError, so it got past refresh's skip-one-profile and stopped every profile."""
+    path = profile.folder / name
+    path.write_bytes(b"# caf\xe9\n")
+    with pytest.raises(ProfileError, match="UTF-8") as caught:
+        profile.subscriptions() if name == "channels.toml" else profile.settings()
+    assert str(path) in str(caught.value)
+    if name == "channels.toml":
+        with pytest.raises(ProfileError):
+            profile.save_subscription(Subscription(MKBHD))
+    assert path.read_bytes() == b"# caf\xe9\n"
+
+
 def test_a_channels_file_with_only_comments_is_empty_not_broken(profile):
     (profile.folder / "channels.toml").write_text("# nothing yet\n\n")
     assert profile.subscriptions() == {}

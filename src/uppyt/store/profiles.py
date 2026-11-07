@@ -18,6 +18,7 @@ from pathlib import Path
 import tomlkit
 from pydantic import ValidationError
 from tomlkit.exceptions import TOMLKitError
+from tomlkit.items import InlineTable
 
 from ..domain.errors import UserError
 from ..domain.feeds import TOGGLES, FeedKind
@@ -80,6 +81,8 @@ class ProfileStore:
             document = tomlkit.document()
             document.add(tomlkit.comment("Your channels. Safe to edit by hand while uppYT isn't saving."))
             return document
+        except UnicodeDecodeError as error:
+            raise ProfileError(_not_utf8(self._channels_path, error)) from error
         except TOMLKitError as error:
             raise ProfileError(f"{self._channels_path} can't be read: {error}") from error
         problems = _channel_problems(document.unwrap())
@@ -112,6 +115,10 @@ class ProfileStore:
             channels = document["channels"]
             if subscription.channel_id in channels:
                 row = channels[subscription.channel_id]
+            elif isinstance(channels, InlineTable):
+                # `channels = { ... }` written by hand: an inline table can only hold inline rows, and no comments.
+                row = tomlkit.inline_table()
+                channels.add(subscription.channel_id, row)
             else:
                 row = tomlkit.table()
                 if note:
@@ -144,6 +151,8 @@ class ProfileStore:
                 document = tomlkit.parse(self._settings_path.read_text(encoding="utf-8"))
             except FileNotFoundError:
                 return Settings()
+            except UnicodeDecodeError as error:
+                raise ProfileError(_not_utf8(self._settings_path, error)) from error
             except TOMLKitError as error:
                 raise ProfileError(f"{self._settings_path} can't be read: {error}") from error
             try:
@@ -212,6 +221,13 @@ class ProfileStore:
             del raw[video_id], parsed[video_id]
             self._write_seen(raw, parsed)
             return True
+
+
+def _not_utf8(path: Path, error: UnicodeDecodeError) -> str:
+    return (
+        f"{path} can't be read: it isn't UTF-8 text (byte {error.start + 1} is the first that isn't). "
+        "Save it as UTF-8 in a text editor."
+    )
 
 
 def _kind_of(value: object) -> str:
