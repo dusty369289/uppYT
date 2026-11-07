@@ -200,7 +200,7 @@ class ChannelService:
         }
         uploads = answers[FeedKind.ALL]
         if isinstance(uploads, Found):
-            # The channel feed is reliable and its links tell Shorts apart, so it vouches for feeds that didn't answer.
+            # The channel feed fails less often and tells Shorts apart, so it vouches for feeds that didn't answer.
             # It can only say yes: a feed that didn't answer stays unknown, even if no recent upload was that kind.
             if any(not e.is_short for e in uploads.feed.entries):
                 available[FeedKind.VIDEOS] = True

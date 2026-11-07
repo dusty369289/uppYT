@@ -60,7 +60,7 @@ def playlist_id(channel_id: str, kind: FeedKind) -> str:
 
 
 def feed_url(channel_id: str, kind: FeedKind) -> str:
-    """All uploads uses the plain channel feed. It lists the same videos, and unlike playlist feeds it's reliable."""
+    """All uploads uses the plain channel feed. It lists the same videos, and fails less often than playlist feeds."""
     if kind is FeedKind.ALL:
         return channel_feed_url(channel_id)
     return f"{FEED_ROOT}?{urlencode({'playlist_id': playlist_id(channel_id, kind)})}"

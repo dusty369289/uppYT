@@ -149,12 +149,14 @@ uppYT only reads YouTube's public RSS feeds, plus one page when you add a channe
 > [!NOTE]
 > **No search and no durations.** Feeds don't provide them, so channels are added by link, and cards don't show a length.
 
-**Feeds can be flaky.** YouTube's per-kind feeds sometimes answer 404 or 500 for a working feed, for around 40 seconds at a time when measured. uppYT works around it like this:
+**Feeds go down.** YouTube's feeds sometimes answer 404 or 500 for channels that are fine. It can pass in under a minute, or go on for hours: on the night of 6 November 2026 they failed on and off for about 7 hours, until about midnight Pacific time. YouTube hasn't said why, and [other](https://github.com/FreeTubeApp/FreeTube/issues/8443) [apps](https://discuss.ai.google.dev/t/youtube-rss-feed-endpoint-returns-404-errors/113379) see it too. For one feed, uppYT works around it like this:
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/img/diagram-flaky-feeds-light.png">
   <img alt="Check a feed. If it answers, save its videos. If not after 6 tries, Videos and Shorts fill in from the channel feed, then uppYT checks again in 5 minutes, then 10, 20, 40 and so on." src="docs/img/diagram-flaky-feeds-dark.png">
 </picture>
+
+When everything's failing, uppYT says so and asks once per check until feeds come back, then catches up straight away. An outage can only cost you videos if a channel uploads more than 15 before it ends.
 
 ## Your data
 

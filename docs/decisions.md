@@ -150,3 +150,13 @@ about 1 s each, but the records said 4.4 s for a page that takes 0.8 s alone.
 - **Browser checks take no longer on 4 workers than on 8** (63 to 68 s against 67 to 68 s), but each test takes 1.6x as long on 8. The default is now 4, for less CPU and fan noise and steadier timing.
 - **Test folders live in `/dev/shm`.** Disk speed moved file-wide timings by 2x between one night and the next morning, with no code change. The owner agreed, on condition nothing leaks. Each run removes its own folder (peak about 6 MB), the next run removes any folder a killed run left, and without a RAM disk or 1 GB free they go to pytest's usual place. The cost is that timings no longer notice disk slowdowns.
 - Baselines for the files that sped up were accepted with that reason, after reading each file's median and the slowest tests.
+
+## 2026-11-07: feed outages
+
+Earlier entries call the channel feed reliable and a bad spell about 40 seconds. Both were too narrow: those came from one evening.
+
+- **What was measured.** A bad period ran on and off for about 7 hours and ended at about 08:00 UTC. Afterwards, 288 requests to 24 feeds gave the same answer every time for each feed. Request style and rate are still to be tested during a bad period, since no comparison was made during one.
+- **An early claim was wrong.** It was called most likely a YouTube outage, then the owner's phone worked on mobile data, which seemed to point at the home connection. That test probably came after 08:00, so it can't decide either way.
+- **A 404 only counts towards "absent" when the channel feed answers.** Before this, three checks in an outage marked working feeds absent for a day. That needed its own count, `missing_in_a_row`, because outage failures still need backoff.
+- **During an outage a check costs one request**, and any failing feed is retried as soon as one answers. This is worked out from stored state, so `uppyt refresh` from cron behaves the same.
+- **No other host serves these feeds.** 12 other Google and YouTube hostnames were tried. `youtube.com` and `m.youtube.com` do, but they're probably the same service.

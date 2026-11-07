@@ -78,6 +78,8 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
   `.ui-report/index.html` afterwards. `uv run pytest -m live -n 0` checks YouTube's real formats.
 - Tests never touch the network. Fixtures are **recordings of real public pages and feeds**, never guessed shapes.
 - 10 s hard timeout per test. A hang is a bug, not a limit to raise.
+- 4 workers, with test folders in `/dev/shm` so disk speed can't move timings. A run removes its own folder, and the next
+  run removes any left by a killed run. Timings therefore don't notice disk slowdowns.
 - **Timing review:** runs are stored in real seconds. The machine's speed is voted on per file, and a whole file shifting is
   reported as one line. A test straying from its baseline enters a sticky queue, shown on every run until it recovers or is
   accepted: `pytest --timing-accept <test> --reason "..."`. Explain it, don't just accept it.
@@ -90,13 +92,16 @@ One source of truth, enforced by `tests/test_architecture.py` where it can be:
 
 ## Things that have caught us out
 - Feed root `yt:channelId` can omit the `UC` prefix. Read the channel ID from entries or the author URI.
-- **Playlist feeds are flaky.** The same URL answers 200, 404 or 500 at random (Shorts failed 8 in 12, once 12 in 12).
-  A bad spell lasts about 40 seconds and hits one feed while others are fine, so retries alone can't guarantee a fetch.
-  `FeedClient` retries, "missing" means every attempt said 404, a failed feed is rechecked after 5 minutes, doubling. The plain channel feed was reliable (20 in 20) and
-  its links tell Shorts apart, so it vouches for feeds that didn't answer. It isn't guaranteed: in one long bad spell it
-  answered 2 in 20 and everything else 0 in 20. Tests with recordings can't show this.
+- **Feeds have bad periods, not random failures.** While healthy, 288 requests to 24 feeds never flipped: real feeds always
+  answered, missing ones never did, and the channel feed managed 95 in 95 at up to 10 a second. In a bad period the same URL
+  answers 200, 404 or 500 (Shorts failed 8 in 12), or nearly everything fails: on 2026-11-06/07 it went on for about 7 hours.
+  It ended at about 08:00 UTC, midnight Pacific, seen from when seven channels' cached answers were made. That's one night, so
+  a daily reset is only a lead. Other apps report the same since December 2025. DNS isn't it: six servers gave the same addresses.
+- **An outage's 404 is byte for byte a real 404.** So a 404 only counts towards "absent" when the channel feed answers. If
+  several feeds are failing, a check first asks one channel feed once, and stops there if it fails. Tests with recordings
+  can't show any of this: `tests/test_outage.py` simulates it.
 - **Count requests, and don't hammer YouTube while testing.** Adding one channel once took 46 requests. A test limits it
-  now. Heavy live testing may have got a connection throttled, and the owner watches YouTube on that connection.
+  now. The owner watches YouTube on the same connection, so keep live testing gentle.
 - **Never keep YouTube's cookies.** Keeping one sends UK and EU visitors to its consent page. Without one, the redirect
   comes straight back. The fixtures passed while every real lookup failed, so check real behaviour with a live run:
   `uv run pytest -m live -n 0` and the real app in a scratch `UPPYT_HOME`.
