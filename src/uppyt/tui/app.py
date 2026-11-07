@@ -787,6 +787,8 @@ class UppytApp(App):
         if self.services is None:
             return False
         if self.profile_problem:
+            self.reload_board()  # the file may have been fixed by hand since
+        if self.profile_problem:
             self.notify(self.profile_problem, severity="error", markup=False, timeout=8)
             return False
         return True

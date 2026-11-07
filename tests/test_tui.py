@@ -849,7 +849,7 @@ async def test_a_bad_hand_edit_to_channels_is_a_message_not_a_crash(scene, tmp_p
         notes = str(app.query_one("#notes", Static).render())
         assert MKBHD in notes and "channels.toml" in notes
         assert rows(app) == []
-        for key in ("c", "f", "a", "r"):
+        for key in ("c", "slash", "a", "r"):
             await pilot.press(key)
             await settle(app, pilot)
             assert len(app.screen_stack) == 1, key
@@ -899,3 +899,24 @@ async def test_channels_and_seen_switch_in_place_so_one_escape_gets_back(scene):
         await pilot.press("escape")
         await pilot.pause()
         assert app.screen is board
+
+
+async def test_fixing_channels_by_hand_is_picked_up_without_pressing_r(scene):
+    app = scene.app()
+    path = scene.runtime.profile("dusty").folder / "channels.toml"
+    path.write_text(f'[channels]\n{MKBHD} = "high"\n')
+    async with app.run_test(size=(100, 50)) as pilot:
+        await settle(app, pilot)
+        await pilot.press("c")
+        await settle(app, pilot)
+        assert len(app.screen_stack) == 1
+        path.write_text(f'[channels.{MKBHD}]\npriority = "high"\n')
+        for key, screen in (("c", ChannelsScreen), ("slash", FilterScreen), ("a", AddChannelScreen)):
+            await pilot.press(key)
+            await settle(app, pilot)
+            assert isinstance(app.screen, screen), key
+            await pilot.press("escape")
+            await settle(app, pilot)
+            assert len(app.screen_stack) == 1
+        assert app.profile_problem is None
+        assert "can't be shown" not in status(app)
