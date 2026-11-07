@@ -111,6 +111,11 @@ class ProfileScreen(ModalScreen[str]):
     """Choosing who's using uppYT, or creating the first profile."""
 
     AUTO_FOCUS = "#profiles, #new-profile"
+    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+
+    def action_cancel(self) -> None:
+        if self.app.services:  # on first run there's no board to go back to
+            self.dismiss(None)
 
     def compose(self) -> ComposeResult:
         names = self.app.runtime.profile_names()

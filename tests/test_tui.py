@@ -781,3 +781,29 @@ async def test_a_failed_manual_refresh_is_reported_not_a_crash(scene):
         await settle(app, pilot)
         assert app.is_running
         assert any("Refresh failed" in m and "database is locked" in m for m in notified(app))
+
+
+async def test_the_profile_dialog_can_be_cancelled(scene):
+    scene.services().channels.add("@veritasium")
+    scene.services("nat")
+    app = scene.app()
+    async with app.run_test(size=(100, 50)) as pilot:
+        await pilot.pause()
+        services = app.services
+        await pilot.press("p")
+        await pilot.pause()
+        assert isinstance(app.screen, ProfileScreen)
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(app.screen, ProfileScreen)
+        assert app.services is services
+        assert len(rows(app)) == 4
+
+
+async def test_the_first_profile_dialog_cant_be_cancelled(scene):
+    app = scene.app(profile=None)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("escape")
+        await pilot.pause()
+        assert isinstance(app.screen, ProfileScreen)
