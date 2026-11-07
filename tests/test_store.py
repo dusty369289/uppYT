@@ -564,6 +564,8 @@ MALFORMED_CHANNELS = [
     pytest.param(f'[channels]\n{MKBHD} = ["high"]\n', MKBHD, id="entry-is-a-list"),
     pytest.param(f"[channels]\n{MKBHD} = true\n", MKBHD, id="entry-is-true"),
     pytest.param(f'[{MKBHD}]\npriority = "high"\n', MKBHD, id="outside-channels"),
+    pytest.param('[channels]\n"@mkbhd" = "high"\n', "@mkbhd", id="handle-as-key"),
+    pytest.param(f'[channels]\n{MKBHD[:-1]} = "high"\n', MKBHD[:-1], id="id-one-short"),
     pytest.param('channels = "everything"\n', "channels", id="channels-is-text"),
     pytest.param('[[channels]]\npriority = "high"\n', "channels", id="channels-is-a-list-of-tables"),
     pytest.param(f"[channels.{MKBHD}]\npriority = 3\n", "priority", id="priority-is-a-number"),

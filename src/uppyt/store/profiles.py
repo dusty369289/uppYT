@@ -245,6 +245,11 @@ def _channel_problems(document: dict) -> list[str]:
         return [*problems, f"channels should be a [channels] table, not {_kind_of(channels)}"]
     for channel_id, row in channels.items():
         if not CHANNEL_ID.match(channel_id):
+            if not isinstance(row, dict):  # a table under a wrong key is skipped, as before
+                problems.append(
+                    f"{channel_id} isn't a channel ID, which starts with UC and is 24 characters long. Each channel "
+                    f'is a table, as [channels.UC...] with priority = "high" under it, not {_kind_of(row)}'
+                )
             continue
         if not isinstance(row, dict):
             problems.append(
