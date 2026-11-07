@@ -5,6 +5,7 @@ Titles come from strangers, so they're always wrapped in Text. A title like "[bo
 
 from __future__ import annotations
 
+import logging
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
@@ -27,6 +28,8 @@ from ..services.refresh import RefreshLoop
 from ..services.runtime import Runtime
 from ..services.views import ChannelDetail, ChannelPreview
 from ..store.profiles import ProfileStore
+
+log = logging.getLogger("uppyt.tui")
 
 PRIORITY_OPTIONS = [(p.label, p) for p in reversed(Priority)]
 WINDOW_OPTIONS = [(label, days) for days, label in WINDOW_CHOICES]
@@ -834,7 +837,14 @@ class UppytApp(App):
         refresh = self.services.refresh
 
         def work() -> None:
-            summary = refresh.run(force=True).summary
+            try:
+                summary = refresh.run(force=True).summary
+            except Exception as error:  # the hourly refresh survives this too
+                log.exception("Refresh failed.")
+                self.call_from_thread(
+                    self.notify, f"Refresh failed: {error}. Trying again later.", severity="error", markup=False
+                )
+                return
             self.call_from_thread(self.reload_board)
             self.call_from_thread(self.notify, summary, markup=False, timeout=5)
 

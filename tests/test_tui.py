@@ -765,3 +765,19 @@ async def test_broken_settings_at_launch_are_reported_not_a_crash(scene):
         await pilot.pause()
         assert app.is_running
         assert any("settings.toml" in m for m in notified(app))
+
+
+async def test_a_failed_manual_refresh_is_reported_not_a_crash(scene):
+    scene.services().channels.add("@veritasium")
+    app = scene.app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        def broken(**_):
+            raise RuntimeError("database is locked")
+
+        app.services.refresh.run = broken
+        await pilot.press("r")
+        await settle(app, pilot)
+        assert app.is_running
+        assert any("Refresh failed" in m and "database is locked" in m for m in notified(app))
